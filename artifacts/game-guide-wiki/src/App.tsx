@@ -8,6 +8,8 @@ import CharactersPage from '@/pages/characters';
 import CharacterDetailPage from '@/pages/character-detail';
 import MedalsPage from '@/pages/medals';
 import MedalDetailPage from '@/pages/medal-detail';
+import EventsPage from '@/pages/events';
+import EventDetailPage from '@/pages/event-detail';
 import SupportPage from '@/pages/support';
 import MyPage from '@/pages/mypage';
 import StrategyPage from '@/pages/strategy';
@@ -33,6 +35,8 @@ function Router() {
         <Route path="/characters/:id" component={CharacterDetailPage} />
         <Route path="/medals" component={MedalsPage} />
         <Route path="/medals/:id" component={MedalDetailPage} />
+        <Route path="/events" component={EventsPage} />
+        <Route path="/events/:id" component={EventDetailPage} />
         <Route path="/support" component={SupportPage} />
         <Route path="/strategy" component={StrategyPage} />
         <Route path="/rankings" component={RankingsPage} />
