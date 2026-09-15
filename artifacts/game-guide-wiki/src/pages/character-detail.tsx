@@ -1,14 +1,251 @@
-import { ArrowLeft, Bookmark, Check, ChevronRight, ExternalLink, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Bookmark, Check, ChevronRight, Heart, Share2, Zap, Shield, Sword, Users } from 'lucide-react';
 import { Link, useParams } from 'wouter';
-import { characters, getCharacter, medals } from '@/data/mockData';
-import { ArtPlaceholder, ExternalSourceLink, GuideShell, MedalCard, PageIntro, RarityBadge, SidebarCard, StatBar } from '@/components/guide-shell';
+import { characters, getCharacter, medals, getTag } from '@/data/mockData';
+import { ArtPlaceholder, GuideShell, MedalCard, PageIntro, RarityBadge, SidebarCard, StatBar } from '@/components/guide-shell';
 import { useState } from 'react';
 
 export default function CharacterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const character = getCharacter(id);
   const [saved, setSaved] = useState(false);
-  if (!character) return <GuideShell><PageIntro eyebrow="ERROR / 404" title="キャラクターが見つかりません" description="指定されたデータはまだ登録されていないか、移動しました。" action={<Link href="/characters" className="rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white" data-testid="link-back-characters">一覧へ戻る</Link>} /></GuideShell>;
-  const related = characters.filter((item) => item.id !== character.id && (item.faction === character.faction || item.role === character.role)).slice(0, 2);
-  return <GuideShell><div className="animate-enter"><Link href="/characters" className="mb-5 inline-flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary" data-testid="link-back-character-list"><ArrowLeft size={14} /> キャラクター一覧</Link><div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]"><div><section className="overflow-hidden rounded-md border border-card-border bg-card shadow-card"><div className="grid sm:grid-cols-[220px_minmax(0,1fr)]"><ArtPlaceholder color={character.color} label={character.element} className="min-h-[250px] sm:min-h-[300px]" /><div className="p-5 sm:p-7"><div className="data-label mb-3">{character.faction} / {character.element}</div><div className="flex items-start justify-between gap-4"><div><div className="text-xs text-muted-foreground">{character.reading}</div><h1 className="mt-1 text-3xl font-black">{character.name}</h1></div><span className="font-data text-4xl font-semibold text-primary">{character.tier}</span></div><div className="mt-4 flex flex-wrap items-center gap-2"><RarityBadge rarity={character.rarity} /><span className="rounded-sm bg-secondary px-2 py-0.5 text-[10px] font-bold text-secondary-foreground">{character.role}</span>{character.tags.map((tag) => <span key={tag} className="text-[10px] text-muted-foreground">#{tag}</span>)}</div><p className="mt-5 text-sm leading-7 text-muted-foreground">{character.description}</p><div className="mt-6 flex flex-wrap gap-2"><button onClick={() => setSaved(!saved)} className={`flex items-center gap-2 rounded-sm px-3 py-2 text-xs font-bold ${saved ? 'bg-primary text-white' : 'border border-border bg-background hover:border-primary hover:text-primary'}`} data-testid="button-save-character">{saved ? <Check size={14} /> : <Bookmark size={14} />}{saved ? '保存しました' : 'ブックマーク'}</button><button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-bold text-muted-foreground hover:border-primary hover:text-primary" data-testid="button-share-character"><Share2 size={14} />共有</button></div></div></div></section><section id="combat-profile" className="mt-6 rounded-md border border-card-border bg-card p-5 shadow-card sm:p-7"><div className="mb-5 flex items-end justify-between border-b border-border pb-4"><div><div className="data-label">COMBAT PROFILE</div><h2 className="mt-1 text-lg font-black">能力値</h2></div><span className="font-data text-[10px] text-muted-foreground">MAX LV. 80</span></div><div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{character.stats.map((stat) => <StatBar key={stat.label} {...stat} />)}</div><div className="mt-7 grid gap-3 border-t border-border pt-5 sm:grid-cols-3"><div><div className="data-label">BEST POSITION</div><p className="mt-1 text-sm font-black">前衛 / 中衛</p></div><div><div className="data-label">UPDATE</div><p className="mt-1 font-data text-xs font-bold">{character.update}</p></div><div><div className="data-label">DATA SOURCE</div><ExternalSourceLink label="検証済みデータ" /></div></div></section><section className="mt-6"><div className="mb-4 flex items-center justify-between"><div><div className="data-label">SYNERGY</div><h2 className="mt-1 text-lg font-black">相性の良いメダル</h2></div><Link href="/medals" className="text-xs font-bold text-primary" data-testid="link-character-medals">メダル一覧 <ChevronRight className="inline" size={13} /></Link></div><div className="grid gap-3 md:grid-cols-2">{medals.filter((medal) => medal.tags.some((tag) => character.tags.includes(tag)) || medal.category === '攻撃強化').slice(0, 2).map((medal) => <MedalCard key={medal.id} medal={medal} />)}</div></section></div><aside className="space-y-4"><SidebarCard title="データメニュー"><div className="space-y-1"><button onClick={() => document.getElementById('combat-profile')?.scrollIntoView({ behavior: 'smooth' })} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-xs font-bold text-muted-foreground hover:bg-secondary hover:text-primary" data-testid="button-character-skills"><Heart size={14} />スキル構成を見る</button><Link href="/support" className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-xs font-bold text-muted-foreground hover:bg-secondary hover:text-primary" data-testid="link-character-build"><Share2 size={14} />おすすめ編成</Link></div></SidebarCard><SidebarCard title="関連キャラクター">{related.map((item) => <Link key={item.id} href={`/characters/${item.id}`} className="mb-3 flex items-center gap-3 last:mb-0" data-testid={`link-related-character-${item.id}`}><ArtPlaceholder color={item.color} label={item.element} className="h-10 w-10 rounded-sm" /><div><p className="text-xs font-bold">{item.name}</p><p className="text-[10px] text-muted-foreground">{item.role} / 評価 {item.tier}</p></div></Link>)}</SidebarCard><div className="rounded-md border border-border bg-secondary/60 p-4"><p className="text-xs font-bold">最終更新</p><p className="mt-1 text-[11px] leading-5 text-muted-foreground">このページの情報は {character.update} に検証されています。</p><button onClick={() => navigator.clipboard?.writeText('情報の修正提案: ' + character.name)} className="mt-3 flex items-center gap-1 text-[10px] font-bold text-primary" data-testid="button-report-character"><ExternalLink size={12} />情報の修正を提案</button></div></aside></div></div></GuideShell>;
+
+  if (!character) {
+    return (
+      <GuideShell>
+        <PageIntro
+          eyebrow="ERROR / 404"
+          title="キャラクターが見つかりません"
+          description="指定されたデータはまだ登録されていないか、削除されました。"
+          action={<Link href="/characters" className="rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90">一覧に戻る</Link>}
+        />
+      </GuideShell>
+    );
+  }
+
+  const recommendedMedalObjects = character.recommendedMedals
+    .map((medalId) => medals.find((m) => m.id === medalId))
+    .filter((m): m is typeof medals[0] => m !== undefined);
+
+  const relatedCharacterObjects = character.relatedCharacters
+    .map((charId) => characters.find((c) => c.id === charId))
+    .filter((c): c is typeof characters[0] => c !== undefined);
+
+  return (
+    <GuideShell>
+      <div className="animate-enter">
+        <Link href="/characters" className="mb-5 inline-flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary" data-testid="link-back-character-list">
+          <ArrowLeft size={14} /> キャラクター一覧に戻る
+        </Link>
+
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* メインコンテンツ */}
+          <div>
+            {/* ヘッダーセクション */}
+            <section className="rounded-md border border-card-border bg-card shadow-card">
+              <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-end">
+                <ArtPlaceholder color={character.color} label={character.element} className="h-[180px] w-[140px] shrink-0 rounded-md" />
+                <div className="flex-1">
+                  <div className="mb-2 text-xs text-muted-foreground">{character.reading}</div>
+                  <h1 className="mb-3 text-3xl font-black leading-tight">{character.name}</h1>
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <RarityBadge rarity={character.rarity} />
+                    <span className="inline-flex items-center rounded-sm border border-border bg-secondary px-2 py-0.5 text-[10px] font-bold text-foreground">{character.role}</span>
+                    <span className="inline-flex items-center rounded-sm border border-border bg-secondary px-2 py-0.5 text-[10px] font-bold text-foreground">{character.faction}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm font-bold text-primary">評価: <span className="text-lg">{character.tier}</span></div>
+                    <div className="text-xs text-muted-foreground">更新: {character.update}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2 sm:flex-col">
+                  <button onClick={() => setSaved(!saved)} className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold transition ${saved ? 'bg-primary text-white' : 'border border-border bg-background hover:bg-secondary'}`} data-testid="button-save-character">
+                    <Bookmark size={16} /> {saved ? '保存済み' : '保存'}
+                  </button>
+                  <button className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-bold hover:bg-secondary" data-testid="button-share-character">
+                    <Share2 size={16} /> シェア
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* 説明文 */}
+            <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+              <h2 className="mb-3 text-sm font-black uppercase tracking-wider text-muted-foreground">キャラクター説明</h2>
+              <p className="leading-relaxed text-foreground">{character.description}</p>
+            </section>
+
+            {/* ステータス */}
+            <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">ステータス</h2>
+              <div className="space-y-3">
+                {character.stats.map((stat) => (
+                  <StatBar key={stat.label} label={stat.label} value={stat.value} />
+                ))}
+              </div>
+            </section>
+
+            {/* タグ */}
+            <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">タグ</h2>
+              <div className="flex flex-wrap gap-2">
+                {character.tags.map((tag) => (
+                  <span key={tag} className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </section>
+
+            {/* スキル */}
+            <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground">
+                <Zap size={16} /> スキル
+              </h2>
+              <div className="space-y-4">
+                {character.skills.map((skill, index) => (
+                  <div key={index} className="border-b border-border pb-4 last:border-b-0">
+                    <div className="mb-1 flex items-center justify-between">
+                      <h3 className="font-bold text-foreground">{skill.name}</h3>
+                      <span className="text-[10px] font-bold text-muted-foreground">CT: {skill.cooldown}秒</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{skill.description}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 特性 */}
+            <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground">
+                <Sword size={16} /> 特性
+              </h2>
+              <div className="space-y-4">
+                {character.traits.map((trait, index) => (
+                  <div key={index} className="border-b border-border pb-4 last:border-b-0">
+                    <h3 className="mb-1 font-bold text-foreground">{trait.name}</h3>
+                    <p className="text-sm text-muted-foreground">{trait.effect}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 強み・弱み */}
+            <section className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-md border border-card-border bg-card p-6 shadow-card">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-green-600">
+                  <Check size={16} /> 強い点
+                </h2>
+                <ul className="space-y-2">
+                  {character.strengths.map((strength, index) => (
+                    <li key={index} className="flex gap-2 text-sm text-muted-foreground">
+                      <span className="text-green-600">•</span> {strength}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-md border border-card-border bg-card p-6 shadow-card">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-red-600">
+                  <Shield size={16} /> 弱い点
+                </h2>
+                <ul className="space-y-2">
+                  {character.weaknesses.map((weakness, index) => (
+                    <li key={index} className="flex gap-2 text-sm text-muted-foreground">
+                      <span className="text-red-600">•</span> {weakness}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            {/* おすすめメダル */}
+            {recommendedMedalObjects.length > 0 && (
+              <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+                <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">おすすめメダル</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {recommendedMedalObjects.map((medal) => (
+                    <MedalCard key={medal.id} medal={medal} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 関連キャラクター */}
+            {relatedCharacterObjects.length > 0 && (
+              <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground">
+                  <Users size={16} /> 関連キャラクター
+                </h2>
+                <div className="space-y-2">
+                  {relatedCharacterObjects.map((relatedChar) => (
+                    <Link
+                      key={relatedChar.id}
+                      href={`/characters/${relatedChar.id}`}
+                      className="flex items-center justify-between rounded-md border border-card-border bg-background p-3 transition hover:bg-secondary"
+                    >
+                      <div>
+                        <div className="text-xs text-muted-foreground">{relatedChar.reading}</div>
+                        <div className="font-bold">{relatedChar.name}</div>
+                      </div>
+                      <ChevronRight size={16} className="text-muted-foreground" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* サイドバー */}
+          <aside className="space-y-5">
+            <SidebarCard title="基本情報">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-xs font-bold text-muted-foreground">FACTION</span>
+                  <div className="font-bold">{character.faction}</div>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <span className="text-xs font-bold text-muted-foreground">ROLE</span>
+                  <div className="font-bold">{character.role}</div>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <span className="text-xs font-bold text-muted-foreground">ELEMENT</span>
+                  <div className="font-bold">{character.element}</div>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <span className="text-xs font-bold text-muted-foreground">RARITY</span>
+                  <div className="font-bold">{character.rarity}</div>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <span className="text-xs font-bold text-muted-foreground">TIER</span>
+                  <div className="font-bold text-lg text-primary">{character.tier}</div>
+                </div>
+              </div>
+            </SidebarCard>
+
+            <SidebarCard title="最新ニュース">
+              <div className="space-y-3">
+                <div className="flex gap-2 border-b border-border pb-3">
+                  <span className="shrink-0 font-bold text-primary">{character.update}</span>
+                  <span className="text-xs text-muted-foreground">最新評価を更新</span>
+                </div>
+                <p className="text-xs text-muted-foreground">このキャラクターについての更新情報はまだ登録されていません。</p>
+              </div>
+            </SidebarCard>
+
+            <SidebarCard title="攻略ガイド">
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <Link href="/strategy" className="flex items-center gap-2 rounded-md border border-border p-2 hover:bg-secondary">
+                  <span>📖</span>
+                  <span>関連攻略記事</span>
+                </Link>
+                <Link href="/support" className="flex items-center gap-2 rounded-md border border-border p-2 hover:bg-secondary">
+                  <span>⚙️</span>
+                  <span>編成シミュレーター</span>
+                </Link>
+              </div>
+            </SidebarCard>
+          </aside>
+        </div>
+      </div>
+    </GuideShell>
+  );
 }
