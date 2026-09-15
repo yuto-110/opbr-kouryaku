@@ -1,0 +1,26 @@
+import { useMemo, useState } from 'react';
+import { Filter, Search, SlidersHorizontal } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { characters, type Role } from '@/data/mockData';
+import { CharacterCard, EmptyState, GuideShell, PageIntro, SidebarCard } from '@/components/guide-shell';
+
+const roles: Array<'すべて' | Role> = ['すべて', 'アタッカー', 'ディフェンダー', 'サポート', 'コントロール'];
+
+export default function CharactersPage() {
+  const [location] = useLocation();
+  const initialQuery = new URLSearchParams(location.split('?')[1] || '').get('search') || '';
+  const [query, setQuery] = useState(initialQuery);
+  const [role, setRole] = useState<typeof roles[number]>('すべて');
+  const [element, setElement] = useState('すべて');
+  const [rarity, setRarity] = useState('すべて');
+  const [sort, setSort] = useState('tier');
+  const filtered = useMemo(() => characters.filter((item) => `${item.name}${item.reading}${item.faction}${item.tags.join('')}`.includes(query) && (role === 'すべて' || item.role === role) && (element === 'すべて' || item.element === element) && (rarity === 'すべて' || item.rarity === rarity)).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'ja') : b.stats[0].value - a.stats[0].value), [query, role, element, rarity, sort]);
+  return <GuideShell><PageIntro eyebrow="CHARACTER DATABASE" title="キャラクター" description="能力値、役割、相性を比較して、勝ち筋に合う一人を見つける。" action={<div className="hidden items-center gap-2 text-right sm:flex"><span className="font-data text-2xl font-semibold text-primary">{filtered.length}</span><span className="text-[10px] text-muted-foreground">RESULTS</span></div>} />
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_240px]">
+      <div><div className="rounded-md border border-card-border bg-card p-3 shadow-card"><label className="flex items-center gap-2"><Search size={16} className="text-muted-foreground" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前、所属、タグで検索" className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" data-testid="input-character-search" /><span className="font-data text-[10px] text-muted-foreground">{filtered.length}件</span></label><div className="mt-3 flex gap-1.5 overflow-x-auto border-t border-border pt-3">{roles.map((item) => <button key={item} onClick={() => setRole(item)} className={`whitespace-nowrap rounded-sm px-2.5 py-1.5 text-[10px] font-bold ${role === item ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`} data-testid={`button-role-${item}`}>{item}</button>)}</div></div>
+        {filtered.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((character) => <CharacterCard key={character.id} character={character} />)}</div> : <div className="mt-4"><EmptyState label="条件に一致するキャラクターが見つかりません" /></div>}
+      </div>
+      <aside className="space-y-4"><SidebarCard title="絞り込み"><div className="mb-4 flex items-center gap-2 text-xs font-bold text-primary"><Filter size={14} />詳細フィルター</div><label className="block text-[10px] font-bold text-muted-foreground">属性<select value={element} onChange={(event) => setElement(event.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background p-2 text-xs font-bold outline-none focus:border-primary" data-testid="select-character-element"><option>すべて</option>{Array.from(new Set(characters.map((item) => item.element))).map((item) => <option key={item}>{item}</option>)}</select></label><label className="mt-4 block text-[10px] font-bold text-muted-foreground">タイプ<select value={role} onChange={(event) => setRole(event.target.value as typeof roles[number])} className="mt-1 w-full rounded-sm border border-border bg-background p-2 text-xs font-bold outline-none focus:border-primary" data-testid="select-character-role">{roles.map((item) => <option key={item}>{item}</option>)}</select></label><label className="mt-4 block text-[10px] font-bold text-muted-foreground">レアリティ<select value={rarity} onChange={(event) => setRarity(event.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background p-2 text-xs font-bold outline-none focus:border-primary" data-testid="select-character-rarity"><option>すべて</option><option>伝説</option><option>超激レア</option><option>激レア</option><option>レア</option></select></label><label className="mt-4 block text-[10px] font-bold text-muted-foreground">並び順<select value={sort} onChange={(event) => setSort(event.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background p-2 text-xs font-bold outline-none focus:border-primary" data-testid="select-character-sort"><option value="tier">評価順</option><option value="name">名前順</option></select></label><button onClick={() => { setQuery(''); setRole('すべて'); setElement('すべて'); setRarity('すべて'); }} className="mt-4 flex w-full items-center justify-center gap-2 border-t border-border pt-3 text-[10px] font-bold text-muted-foreground hover:text-primary" data-testid="button-reset-character-filter"><SlidersHorizontal size={13} />条件をリセット</button></SidebarCard><SidebarCard title="見方のヒント"><p className="text-xs leading-5 text-muted-foreground">評価ランクは単体性能ではなく、現行環境の編成適性を含めた総合指標です。</p></SidebarCard></aside>
+    </div>
+  </GuideShell>;
+}

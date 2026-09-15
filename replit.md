@@ -1,6 +1,6 @@
-# [Project name]
+# 覇道データベース
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+ゲーム攻略WikiのUIプロトタイプ。キャラクター・メダル・攻略記事・サポート編成をダミーデータで閲覧できます。
 
 ## Run & Operate
 
@@ -22,15 +22,19 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/game-guide-wiki/src/data/mockData.ts` — キャラクター、メダル、記事のダミーデータ
+- `artifacts/game-guide-wiki/src/components/guide-shell.tsx` — 共通レイアウトと再利用UI
+- `artifacts/game-guide-wiki/src/pages/` — 画面ごとのページコンポーネント
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- データは画面コンポーネントから分離し、将来のAPI取得へ差し替えやすい形にしている。
+- 詳細画面はルートパラメータからデータを切り替える再利用コンポーネントとして実装している。
+- 画像は著作権保護のため幾何学プレースホルダーを使用している。
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+レスポンシブなゲーム攻略データベースUI。検索・絞り込み・詳細閲覧・サポート編成のダミー生成・マイページ表示に対応。
 
 ## User preferences
 
