@@ -119,11 +119,12 @@ router.put(
       return res.json(character);
     } catch (error) {
       if (error instanceof Error && error.name === "ZodError") {
+        console.error("Character validation error:", error);
         return res.status(400).json({
-          code: "INVALID_REQUEST",
-          message: "入力内容が正しくありません",
-        });
-      }
+        code: "INVALID_REQUEST",
+        message: "入力内容が正しくありません",
+      });
+    }
 
       console.error(error);
       return res.status(500).json({
