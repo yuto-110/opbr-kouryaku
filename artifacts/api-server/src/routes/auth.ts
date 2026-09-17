@@ -1,9 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { User } from "@workspace/db";
+import { User, connectDB } from "@workspace/db";
 import { LoginSchema } from "@workspace/api-zod";
-import { connectDB } from "@workspace/db";
 
 const router: IRouter = Router();
 

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+export const HealthCheckResponse = z.object({
+  status: z.literal('ok'),
+});
+
 // User schemas
 export const UserRoleSchema = z.enum(['admin', 'user']);
 
