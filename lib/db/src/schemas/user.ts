@@ -72,21 +72,36 @@ const userSchema = new Schema<IUser>(
     },
 
     ownedCharacters: {
-      type: [
-        {
-          characterId: {
-            type: String,
-            required: true,
-          },
-          level: {
-            type: Number,
-            default: 1,
-            min: 1,
-          },
-        },
-      ],
-      default: [],
+  type: [
+    {
+      characterId: {
+        type: String,
+        required: true,
+      },
+
+      stars: {
+        type: Number,
+        required: true,
+        min: 2,
+        max: 6,
+      },
+
+      level: {
+        type: Number,
+        default: 1,
+        min: 1,
+        max: 100,
+      },
+
+      overboost: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
+  ],
+  default: [],
+},
 
     favoriteCharacters: {
       type: [String],
