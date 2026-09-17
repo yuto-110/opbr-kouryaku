@@ -19,6 +19,7 @@ import MyPage from '@/pages/mypage';
 import StrategyPage from '@/pages/strategy';
 import RankingsPage from '@/pages/rankings';
 import AdminCharactersPage from '@/pages/admin-characters';
+import AuthPage from '@/pages/auth';
 
 import { type ReactNode } from 'react';
 
@@ -96,6 +97,11 @@ function Router() {
         />
 
         <Route component={NotFound} />
+
+        <Route
+          path="/auth"
+          component={AuthPage}
+        />
       </Switch>
     </RoutedErrorBoundary>
   );
