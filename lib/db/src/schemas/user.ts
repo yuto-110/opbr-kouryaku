@@ -67,6 +67,41 @@ const userSchema = new Schema<IUser>(
   }
 );
 
+    ownedCharacters: {
+      type: [
+        {
+          characterId: { type: String, required: true },
+          level: { type: Number, default: 1, min: 1 },
+        },
+      ],
+      default: [],
+    },
+
+    favoriteCharacters: {
+      type: [String],
+      default: [],
+    },
+
+    savedSupportTeams: {
+      type: [
+        {
+          name: { type: String, required: true },
+          characterIds: { type: [String], default: [] },
+        },
+      ],
+      default: [],
+    },
+
+    savedMedalTeams: {
+      type: [
+        {
+          name: { type: String, required: true },
+          medalIds: { type: [String], default: [] },
+        },
+      ],
+      default: [],
+    },
+
 // Index for faster queries
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
