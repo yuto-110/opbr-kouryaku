@@ -467,7 +467,7 @@ export const CreateCharacterSchema =
       .array(z.string().max(200))
       .default([]),
 
-    implementedAt: z.date().optional(),
+    implementedAt: z.coerce.date().optional(),
 
     /*
      * 属性
