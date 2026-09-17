@@ -61,7 +61,7 @@ catalogs:
       specifier: ^4.1.14
       version: 4.3.3
     tsx:
-      specifier: ^4.21.0
+      specifier: ^4.23.13
       version: 4.23.13
     vite:
       specifier: ^7.3.2
@@ -165,6 +165,9 @@ importers:
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.13
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -226,6 +229,9 @@ importers:
       thread-stream:
         specifier: 3.1.0
         version: 3.1.0
+      tsx:
+        specifier: ^4.20.3
+        version: 4.23.13
 
   artifacts/game-guide-wiki:
     devDependencies:

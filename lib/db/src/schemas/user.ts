@@ -1,23 +1,30 @@
-import { Schema, model, type Document } from "mongoose";
-import { z } from "zod";
+import { Schema, model, type Document } from 'mongoose';
+import { z } from 'zod';
 
-export const UserRoleEnum = z.enum(["admin", "user"]);
+export const UserRoleEnum = z.enum([
+  'admin',
+  'user',
+]);
 
 export type UserRole = z.infer<typeof UserRoleEnum>;
 
 export interface IOwnedCharacter {
+  // キャラクターマスターのID
   characterId: string;
 
-  // 現在の★
+  // ユーザーが現在所持している★
+  // ★2〜★6
   stars: number;
 
-  // 現在のレベル
+  // ユーザーが現在設定しているレベル
+  // Lv1〜Lv100
   level: number;
 
   // ブースト段階
-  // 0 = 未ブースト
-  // 1〜3 = 通常ブースト
-  // 4 = オーバーブースト
+  //
+  // 現時点では数値として保存する。
+  // 各段階の正式な意味・名称・上限については、
+  // 実際のゲーム仕様を確認してから確定する。
   boostLevel: number;
 }
 
@@ -36,13 +43,90 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   role: UserRole;
+
+  // ユーザーが所持しているキャラクター
   ownedCharacters: IOwnedCharacter[];
+
+  // お気に入りキャラクター
   favoriteCharacters: string[];
+
+  // 保存したサポート編成
   savedSupportTeams: ISavedTeam[];
+
+  // 保存したメダル編成
   savedMedalTeams: ISavedMedalTeam[];
+
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ownedCharacterSchema = new Schema<IOwnedCharacter>(
+  {
+    characterId: {
+      type: String,
+      required: true,
+    },
+
+    stars: {
+      type: Number,
+      required: true,
+      min: 2,
+      max: 6,
+    },
+
+    level: {
+      type: Number,
+      required: true,
+      default: 1,
+      min: 1,
+      max: 100,
+    },
+
+    boostLevel: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const savedTeamSchema = new Schema<ISavedTeam>(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+
+    characterIds: {
+      type: [String],
+      default: [],
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const savedMedalTeamSchema = new Schema<ISavedMedalTeam>(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+
+    medalIds: {
+      type: [String],
+      default: [],
+    },
+  },
+  {
+    _id: false,
+  },
+);
 
 const userSchema = new Schema<IUser>(
   {
@@ -52,6 +136,7 @@ const userSchema = new Schema<IUser>(
       unique: true,
       minlength: 3,
       maxlength: 50,
+      trim: true,
     },
 
     email: {
@@ -59,6 +144,7 @@ const userSchema = new Schema<IUser>(
       required: true,
       unique: true,
       lowercase: true,
+      trim: true,
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
 
@@ -70,42 +156,13 @@ const userSchema = new Schema<IUser>(
 
     role: {
       type: String,
-      enum: ["admin", "user"],
-      default: "user",
+      enum: UserRoleEnum.options,
+      default: 'user',
+      required: true,
     },
 
     ownedCharacters: {
-      type: [
-        {
-          characterId: {
-            type: String,
-            required: true,
-          },
-
-          stars: {
-            type: Number,
-            required: true,
-            min: 2,
-            max: 6,
-          },
-
-          level: {
-            type: Number,
-            required: true,
-            default: 1,
-            min: 1,
-            max: 100,
-          },
-
-          boostLevel: {
-            type: Number,
-            required: true,
-            default: 0,
-            min: 0,
-            max: 4,
-          },
-        },
-      ],
+      type: [ownedCharacterSchema],
       default: [],
     },
 
@@ -115,36 +172,12 @@ const userSchema = new Schema<IUser>(
     },
 
     savedSupportTeams: {
-      type: [
-        {
-          name: {
-            type: String,
-            required: true,
-          },
-
-          characterIds: {
-            type: [String],
-            default: [],
-          },
-        },
-      ],
+      type: [savedTeamSchema],
       default: [],
     },
 
     savedMedalTeams: {
-      type: [
-        {
-          name: {
-            type: String,
-            required: true,
-          },
-
-          medalIds: {
-            type: [String],
-            default: [],
-          },
-        },
-      ],
+      type: [savedMedalTeamSchema],
       default: [],
     },
   },
@@ -153,8 +186,7 @@ const userSchema = new Schema<IUser>(
   },
 );
 
-// Index for faster queries
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
-
-export const User = model<IUser>("User", userSchema);
+export const User = model<IUser>(
+  'User',
+  userSchema,
+);

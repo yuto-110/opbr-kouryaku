@@ -62,7 +62,8 @@ export interface ICharacterStats {
   levelStats: ILevelStat[];
 
   // Lv100 + オーバーブースト時の最大ステータス
-  level100Overboost: IStatValues;
+  // データがまだないキャラクターも登録できるように任意にする
+  level100Overboost?: IStatValues;
 }
 
 export interface IChangeOption<T> {
@@ -104,14 +105,19 @@ export interface ICharacter extends Document {
 
   rarity: CharacterRarity;
 
-  // 初期状態の★
+  // キャラクターが最初に持っている★
+  // 実際の所持キャラクターの現在★はUser側で管理
   initialStars: CharacterInitialStars;
 
   stats: ICharacterStats;
 
-  description: string;
+  // キャラクターの説明
+  description?: string;
 
+  // スキル
   skills: ISkill[];
+
+  // 特性
   traits: ITrait[];
 
   // 新世界、海軍などのキャラクタータイプ
@@ -120,16 +126,25 @@ export interface ICharacter extends Document {
   // チームブースト
   teamBoost?: string;
 
+  // 現在の評価ティア
   tier: CharacterTier;
 
+  // キャラクター画像
   imageUrl?: string;
 
+  // 長所
   strengths: string[];
+
+  // 短所
   weaknesses: string[];
 
+  // おすすめメダル
   recommendedMedals: string[];
+
+  // 関連キャラクター
   relatedCharacters: string[];
 
+  // 実装日
   implementedAt?: Date;
 
   createdAt: Date;
@@ -142,24 +157,30 @@ const statValuesSchema = new Schema<IStatValues>(
       type: Number,
       required: true,
     },
+
     hp: {
       type: Number,
       required: true,
     },
+
     attack: {
       type: Number,
       required: true,
     },
+
     defense: {
       type: Number,
       required: true,
     },
+
     critical: {
       type: Number,
       required: true,
     },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const levelStatSchema = new Schema<ILevelStat>(
@@ -170,32 +191,40 @@ const levelStatSchema = new Schema<ILevelStat>(
       min: 1,
       max: 100,
     },
+
     totalPower: {
       type: Number,
       required: true,
     },
+
     hp: {
       type: Number,
       required: true,
     },
+
     attack: {
       type: Number,
       required: true,
     },
+
     defense: {
       type: Number,
       required: true,
     },
+
     critical: {
       type: Number,
       required: true,
     },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const characterStatsSchema = new Schema<ICharacterStats>(
   {
+    // 実際に確認できたレベルのステータスだけ登録可能
     levelStats: {
       type: [levelStatSchema],
       default: [],
@@ -212,12 +241,16 @@ const characterStatsSchema = new Schema<ICharacterStats>(
       },
     },
 
+    // Lv100 + オーバーブースト最大時のステータス
+    // まだデータがないキャラクターは未設定でもOK
     level100Overboost: {
       type: statValuesSchema,
-      required: true,
+      required: false,
     },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const skillSchema = new Schema<ISkill>(
@@ -226,13 +259,20 @@ const skillSchema = new Schema<ISkill>(
       type: String,
       required: true,
     },
+
     description: {
       type: String,
       required: true,
     },
-    cooldown: Number,
+
+    cooldown: {
+      type: Number,
+      min: 0,
+    },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const traitSchema = new Schema<ITrait>(
@@ -241,12 +281,15 @@ const traitSchema = new Schema<ITrait>(
       type: String,
       required: true,
     },
+
     effect: {
       type: String,
       required: true,
     },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const characterTypeSchema = new Schema<ICharacterType>(
@@ -255,14 +298,24 @@ const characterTypeSchema = new Schema<ICharacterType>(
       type: String,
       required: true,
     },
+
     name: {
       type: String,
       required: true,
     },
-    effect: String,
-    effectLevel: Number,
+
+    effect: {
+      type: String,
+    },
+
+    effectLevel: {
+      type: Number,
+      min: 0,
+    },
   },
-  { _id: false },
+  {
+    _id: false,
+  },
 );
 
 const characterSchema = new Schema<ICharacter>(
@@ -285,6 +338,8 @@ const characterSchema = new Schema<ICharacter>(
       required: true,
     },
 
+    // 基本属性
+    // 戦闘中に属性が変化する場合は changesTo に記録
     attribute: {
       base: {
         type: String,
@@ -299,6 +354,8 @@ const characterSchema = new Schema<ICharacter>(
       },
     },
 
+    // 基本スタイル
+    // 戦闘中にスタイルが変化する場合は changesTo に記録
     role: {
       base: {
         type: String,
@@ -313,85 +370,133 @@ const characterSchema = new Schema<ICharacter>(
       },
     },
 
+    // レアリティ
     rarity: {
       type: String,
       enum: CharacterRarityEnum.options,
       required: true,
     },
 
+    // 初期★
     initialStars: {
       type: Number,
       enum: CharacterInitialStarsEnum.options,
       required: true,
     },
 
+    // ステータス
     stats: {
       type: characterStatsSchema,
       required: true,
     },
 
-    description: String,
+    // 説明
+    description: {
+      type: String,
+    },
 
+    // スキル
     skills: {
       type: [skillSchema],
       default: [],
     },
 
+    // 特性
     traits: {
       type: [traitSchema],
       default: [],
     },
 
+    // キャラクタータイプ
     characterTypes: {
       type: [characterTypeSchema],
       default: [],
     },
 
-    teamBoost: String,
+    // チームブースト
+    teamBoost: {
+      type: String,
+    },
 
+    // ティア
     tier: {
       type: String,
       enum: CharacterTierEnum.options,
       required: true,
     },
 
-    imageUrl: String,
+    // 画像
+    imageUrl: {
+      type: String,
+    },
 
+    // 長所
     strengths: {
       type: [String],
       default: [],
     },
 
+    // 短所
     weaknesses: {
       type: [String],
       default: [],
     },
 
+    // おすすめメダル
     recommendedMedals: {
       type: [String],
       default: [],
     },
 
+    // 関連キャラクター
     relatedCharacters: {
       type: [String],
       default: [],
     },
 
-    implementedAt: Date,
+    // 実装日
+    implementedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
   },
 );
 
-characterSchema.index({ id: 1 }, { unique: true });
-characterSchema.index({ name: 1 });
-characterSchema.index({ 'attribute.base': 1 });
-characterSchema.index({ 'role.base': 1 });
-characterSchema.index({ rarity: 1 });
-characterSchema.index({ tier: 1 });
-characterSchema.index({ 'characterTypes.typeId': 1 });
-characterSchema.index({ teamBoost: 1 });
+// インデックス
+characterSchema.index(
+  { id: 1 },
+  { unique: true },
+);
+
+characterSchema.index({
+  name: 1,
+});
+
+characterSchema.index({
+  'attribute.base': 1,
+});
+
+characterSchema.index({
+  'role.base': 1,
+});
+
+characterSchema.index({
+  rarity: 1,
+});
+
+characterSchema.index({
+  tier: 1,
+});
+
+characterSchema.index({
+  'characterTypes.typeId': 1,
+});
+
+characterSchema.index({
+  teamBoost: 1,
+});
 
 export const Character = model<ICharacter>(
   'Character',
