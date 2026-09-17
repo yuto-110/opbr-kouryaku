@@ -24,7 +24,7 @@ router.get(
     try {
       await connectDB();
 
-      const user = await User.findById(req.user.userId).lean();
+      const user = await User.findById(req.user.id).lean();
 
       if (!user) {
         return res.status(404).json({
@@ -85,7 +85,7 @@ router.post(
         });
       }
 
-      const user = await User.findById(req.user.userId);
+      const user = await User.findById(req.user.id);
 
       if (!user) {
         return res.status(404).json({
@@ -212,7 +212,7 @@ router.put(
         });
       }
 
-      const user = await User.findById(req.user.userId);
+      const user = await User.findById(req.user.id);
 
       if (!user) {
         return res.status(404).json({
@@ -264,7 +264,7 @@ router.delete(
 
       await connectDB();
 
-      const user = await User.findById(req.user.userId);
+      const user = await User.findById(req.user.id);
 
       if (!user) {
         return res.status(404).json({
