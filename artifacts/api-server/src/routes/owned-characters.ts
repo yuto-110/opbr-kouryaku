@@ -24,7 +24,7 @@ router.get(
     try {
       await connectDB();
 
-      const user = await User.findById(req.user.id).lean();
+      const user = await User.findById(req.user!.id).lean();
 
       if (!user) {
         return res.status(404).json({
@@ -85,7 +85,7 @@ router.post(
         });
       }
 
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user!.id);
 
       if (!user) {
         return res.status(404).json({
@@ -177,7 +177,7 @@ router.put(
       ) {
         return res.status(400).json({
           code: 'INVALID_BOOST_LEVEL',
-          message: 'ブースト段階は0〜4で指定してください',
+          message: 'ブースト段階は0〜4の整数で指定してください',
         });
       }
 
@@ -221,7 +221,7 @@ router.put(
         });
       }
 
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user!.id);
 
       if (!user) {
         return res.status(404).json({
@@ -273,7 +273,7 @@ router.delete(
 
       await connectDB();
 
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user!.id);
 
       if (!user) {
         return res.status(404).json({

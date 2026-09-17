@@ -390,29 +390,25 @@ export const CharacterTypesSchema = z
  * ============================================================ */
 
 export const TeamBoostSchema = z.object({
-  /*
-   * マスターデータのID
-   */
   boostId: z
     .string()
     .min(1)
     .max(100),
 
-  /*
-   * チームブースト名
-   */
   name: z
     .string()
     .min(1)
     .max(200),
 
-  /*
-   * 効果説明
-   */
   effect: z
     .string()
     .min(1)
     .max(5000),
+
+  iconUrl: z
+    .string()
+    .url()
+    .optional(),
 });
 
 /* ============================================================

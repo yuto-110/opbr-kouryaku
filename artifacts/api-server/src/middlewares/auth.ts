@@ -67,7 +67,7 @@ export async function requireAuth(
       role: user.role,
     };
 
-    next();
+    return next();
   } catch {
     return res.status(401).json({
       code: "INVALID_TOKEN",
@@ -95,5 +95,5 @@ export function requireAdmin(
     });
   }
 
-  next();
+  return next();
 }
