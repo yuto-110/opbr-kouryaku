@@ -92,16 +92,17 @@ function Router() {
         />
 
         <Route
+          path="/auth"
+          component={AuthPage}
+        />
+
+        <Route
           path="/admin/characters"
           component={AdminCharactersPage}
         />
 
         <Route component={NotFound} />
 
-        <Route
-          path="/auth"
-          component={AuthPage}
-        />
       </Switch>
     </RoutedErrorBoundary>
   );
