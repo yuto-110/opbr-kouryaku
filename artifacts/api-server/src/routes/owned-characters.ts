@@ -172,11 +172,20 @@ router.put(
 
       if (
         !Number.isInteger(boostLevel) ||
-        boostLevel < 0
+        boostLevel < 0 ||
+        boostLevel > 4
       ) {
         return res.status(400).json({
           code: 'INVALID_BOOST_LEVEL',
-          message: 'ブースト段階が正しくありません',
+          message: 'ブースト段階は0〜4で指定してください',
+        });
+      }
+
+      // ブースト3・4はLv100で解放
+      if (level < 100 && boostLevel >= 3) {
+        return res.status(400).json({
+          code: 'BOOST_LEVEL_REQUIRES_LEVEL_100',
+          message: 'ブースト3以降はLv100で解放されます',
         });
       }
 
