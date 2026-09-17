@@ -4,11 +4,33 @@ import { z } from 'zod';
 export const UserRoleEnum = z.enum(['admin', 'user']);
 export type UserRole = z.infer<typeof UserRoleEnum>;
 
+export interface IOwnedCharacter {
+  characterId: string;
+  level: number;
+}
+
+export interface ISavedTeam {
+  name: string;
+  characterIds: string[];
+}
+
+export interface ISavedMedalTeam {
+  name: string;
+  medalIds: string[];
+}
+
 export interface IUser extends Document {
   username: string;
   email: string;
   passwordHash: string;
   role: UserRole;
+
+  ownedCharacters: IOwnedCharacter[];
+  favoriteCharacters: string[];
+
+  savedSupportTeams: ISavedTeam[];
+  savedMedalTeams: ISavedMedalTeam[];
+
   createdAt: Date;
   updatedAt: Date;
 }
