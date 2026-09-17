@@ -20,6 +20,7 @@ import StrategyPage from '@/pages/strategy';
 import RankingsPage from '@/pages/rankings';
 import AdminCharactersPage from '@/pages/admin-characters';
 import AuthPage from '@/pages/auth';
+import AdminPage from '@/pages/admin';
 
 import { type ReactNode } from 'react';
 
