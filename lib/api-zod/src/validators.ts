@@ -21,9 +21,6 @@ export const CreateUserSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
   password: z.string().min(8).max(128),
-
-  // 通常のアカウント作成ではAPI側で user に固定する。
-  // 管理者権限をクライアントから付与できないようにする。
   role: z.literal("user").default("user"),
 });
 
@@ -54,7 +51,7 @@ export type UserResponse = z.infer<
 >;
 
 /* ============================================================
- * Character - Basic
+ * Character Basic
  * ============================================================ */
 
 export const CharacterAttributeSchema = z.enum([
@@ -118,17 +115,63 @@ export type CharacterTier = z.infer<
 >;
 
 /* ============================================================
- * Change Option
+ * Character Tags
  *
- * 属性・役職などが途中で変化するキャラクター用
+ * サポート編成・検索・絞り込みで利用するマスタータグ
  * ============================================================ */
 
-const ChangeOptionSchema = <T extends z.ZodTypeAny>(
+export const CHARACTER_TAG_OPTIONS = [
+  "攻撃力増加",
+  "攻撃力減少",
+  "防御力増加",
+  "防御力減少",
+  "防御力無視",
+  "ダメージ減少無視",
+  "回復",
+  "無敵",
+  "よろけ無効",
+  "ふっとばし",
+  "引き寄せ",
+  "クールタイム短縮",
+  "クールタイム増加",
+  "回避性能強化",
+  "通常攻撃強化",
+  "スキル強化",
+  "状態異常無効",
+  "状態異常解除",
+  "状態異常付与",
+  "旗奪取",
+  "旗防衛",
+  "お宝ゲージ回復",
+  "体力回復",
+  "味方強化",
+  "敵弱体化",
+  "敵撃破時強化",
+  "復活",
+  "耐久型",
+  "火力型",
+  "サポート型",
+] as const;
+
+export const CharacterTagSchema = z.enum(
+  CHARACTER_TAG_OPTIONS,
+);
+
+export const CharacterTagsSchema = z
+  .array(CharacterTagSchema)
+  .default([]);
+
+/* ============================================================
+ * Change Option
+ * ============================================================ */
+
+const ChangeOptionSchema = <
+  T extends z.ZodTypeAny,
+>(
   schema: T,
 ) =>
   z.object({
     base: schema,
-
     changesTo: z
       .array(schema)
       .default([]),
@@ -184,28 +227,10 @@ export const LevelStatSchema =
   });
 
 export const CharacterStatsSchema = z.object({
-  /*
-   * Lv1〜Lv100の各レベルのステータス
-   *
-   * 例:
-   * [
-   *   {
-   *     level: 1,
-   *     totalPower: 1000,
-   *     hp: 1000,
-   *     attack: 500,
-   *     defense: 500,
-   *     critical: 11
-   *   }
-   * ]
-   */
   levelStats: z
     .array(LevelStatSchema)
     .default([]),
 
-  /*
-   * Lv100 + 超過ブースト時のステータス
-   */
   level100Overboost:
     StatValuesSchema.optional(),
 });
@@ -214,85 +239,133 @@ export const CharacterStatsSchema = z.object({
  * Skills
  * ============================================================ */
 
+export const SKILL_TYPE_OPTIONS = [
+  "通常",
+  "ダブルキャラ",
+  "スタイルチェンジ",
+  "進化スキル",
+] as const;
+
+export const SkillTypeSchema = z.enum(
+  SKILL_TYPE_OPTIONS,
+);
+
+export const SKILL_EFFECT_TAG_OPTIONS = [
+  "攻撃力増加",
+  "攻撃力減少",
+  "防御力増加",
+  "防御力減少",
+  "防御力無視",
+  "ダメージ減少無視",
+  "回復",
+  "無敵",
+  "よろけ無効",
+  "ふっとばし",
+  "引き寄せ",
+  "クールタイム短縮",
+  "クールタイム増加",
+  "回避性能強化",
+  "通常攻撃強化",
+  "スキル強化",
+  "状態異常無効",
+  "状態異常解除",
+  "旗奪取補助",
+  "旗防衛補助",
+  "お宝ゲージ回復",
+  "体力回復",
+  "味方強化",
+  "敵弱体化",
+  "敵撃破時強化",
+  "復活",
+] as const;
+
+export const SkillEffectTagSchema =
+  z.enum(
+    SKILL_EFFECT_TAG_OPTIONS,
+  );
+
+export const STATUS_AILMENT_OPTIONS = [
+  "気絶",
+  "燃焼",
+  "凍結",
+  "感電",
+  "毒",
+  "魅了",
+  "混乱",
+  "石化",
+  "振動",
+  "お宝奪取不可",
+  "回避不可",
+  "スキル使用不可",
+  "攻撃力減少",
+  "防御力減少",
+  "移動速度減少",
+] as const;
+
+export const StatusAilmentSchema =
+  z.enum(
+    STATUS_AILMENT_OPTIONS,
+  );
+
 export const SkillSchema = z.object({
-  /*
-   * スキル名
-   */
+  skillType:
+    SkillTypeSchema.default("通常"),
+
   name: z
     .string()
     .min(1)
     .max(200),
 
-  /*
-   * スキルの効果説明
-   */
   description: z
     .string()
     .min(1)
     .max(5000),
 
-  /*
-   * 威力（%）
-   *
-   * 例:
-   * 150
-   * 300
-   * 500
-   */
   power: z
     .number()
     .min(0)
     .optional(),
 
-  /*
-   * クールタイム（秒）
-   */
   cooldown: z
     .number()
     .min(0)
     .optional(),
 
   /*
-   * ダメージ減少無視
+   * 旧データ互換
    */
   damageReductionIgnore: z
     .boolean()
     .default(false),
 
-  /*
-   * 防御力無視
-   */
   defenseIgnore: z
     .boolean()
     .default(false),
 
   /*
-   * 状態異常
-   *
-   * 例:
-   * 気絶
-   * 燃焼
-   * 凍結
-   * 感電
+   * 新しい複数タグ
    */
+  effectTags: z
+    .array(SkillEffectTagSchema)
+    .default([]),
+
   statusAilment: z
     .string()
     .max(200)
     .optional(),
 
   /*
-   * 状態異常・追加効果の時間
+   * 新しい複数状態異常タグ
    */
+  statusAilments: z
+    .array(StatusAilmentSchema)
+    .default([]),
+
   duration: z
     .number()
     .min(0)
     .optional(),
 
-  /*
-   * その他の効果
-   *
-   * 複数登録可能
-   */
   extraEffects: z
     .array(
       z.string().max(2000),
@@ -310,33 +383,25 @@ export const SkillsSchema = z
 
 export const TraitSlotSchema = z.enum([
   "キャラ特性",
+  "スタイル特性",
   "特性1",
   "特性2",
+  "ブースト特性",
   "その他",
 ]);
 
 export const TraitSchema = z.object({
-  /*
-   * どの特性枠なのか
-   */
   slot: TraitSlotSchema,
 
   /*
-   * 特性名
-   *
-   * 例:
-   * キャラ特性
-   * 特性1
-   * 特性2
+   * 旧データ互換用。
+   * 新管理画面ではeffectを中心に利用する。
    */
   name: z
     .string()
-    .min(1)
-    .max(200),
+    .max(200)
+    .default(""),
 
-  /*
-   * 効果説明
-   */
   effect: z
     .string()
     .min(1)
@@ -349,35 +414,25 @@ export const TraitsSchema = z
 
 /* ============================================================
  * Character Type
- *
- * マスターデータから選択する形式
  * ============================================================ */
 
-export const CharacterTypeSchema = z.object({
-  /*
-   * マスターデータのID
-   */
-  typeId: z
-    .string()
-    .min(1)
-    .max(100),
+export const CharacterTypeSchema =
+  z.object({
+    typeId: z
+      .string()
+      .min(1)
+      .max(100),
 
-  /*
-   * マスター側で定義された名称
-   */
-  name: z
-    .string()
-    .min(1)
-    .max(200),
+    name: z
+      .string()
+      .min(1)
+      .max(200),
 
-  /*
-   * マスター側で定義された効果
-   */
-  effect: z
-    .string()
-    .min(1)
-    .max(5000),
-});
+    effect: z
+      .string()
+      .min(1)
+      .max(5000),
+  });
 
 export const CharacterTypesSchema = z
   .array(CharacterTypeSchema)
@@ -385,34 +440,33 @@ export const CharacterTypesSchema = z
 
 /* ============================================================
  * Team Boost
- *
- * マスターデータから選択する形式
  * ============================================================ */
 
-export const TeamBoostSchema = z.object({
-  boostId: z
-    .string()
-    .min(1)
-    .max(100),
+export const TeamBoostSchema =
+  z.object({
+    boostId: z
+      .string()
+      .min(1)
+      .max(100),
 
-  name: z
-    .string()
-    .min(1)
-    .max(200),
+    name: z
+      .string()
+      .min(1)
+      .max(200),
 
-  effect: z
-    .string()
-    .min(1)
-    .max(5000),
+    effect: z
+      .string()
+      .min(1)
+      .max(5000),
 
-  iconUrl: z
-    .string()
-    .url()
-    .optional(),
-});
+    iconUrl: z
+      .string()
+      .url()
+      .optional(),
+  });
 
 /* ============================================================
- * Common Character Fields
+ * Common
  * ============================================================ */
 
 const CharacterIdSchema = z
@@ -428,18 +482,15 @@ const CharacterIdSchema = z
 
 /* ============================================================
  * Create Character
+ *
+ * 新規登録時のIDはAPI側で自動生成する。
  * ============================================================ */
 
 export const CreateCharacterSchema =
   z.object({
-    /*
-     * 内部ID
-     */
-    id: CharacterIdSchema,
+    id:
+      CharacterIdSchema.optional(),
 
-    /*
-     * キャラクター名
-     */
     name: z
       .string()
       .trim()
@@ -463,84 +514,52 @@ export const CreateCharacterSchema =
       .max(10000)
       .default(""),
 
-    tags: z
-      .array(z.string().max(200))
-      .default([]),
-
-    implementedAt: z.coerce.date().optional(),
+    tags:
+      CharacterTagsSchema,
 
     /*
-     * 属性
+     * 管理画面では入力しない。
+     * 既存APIとの互換性のためschemaには残す。
      */
+    implementedAt:
+      z.coerce.date().optional(),
+
     attribute:
       CharacterAttributeChangeSchema,
 
-    /*
-     * 役職
-     */
     role:
       CharacterRoleChangeSchema,
 
-    /*
-     * レアリティ
-     */
     rarity:
       CharacterRaritySchema,
 
-    /*
-     * 初期★
-     */
     initialStars:
       CharacterInitialStarsSchema,
 
-    /*
-     * ステータス
-     */
     stats:
       CharacterStatsSchema,
 
-    /*
-     * スキル
-     */
     skills:
       SkillsSchema,
 
-    /*
-     * 特性
-     */
     traits:
       TraitsSchema,
 
-    /*
-     * キャラクタータイプ
-     */
     characterTypes:
       CharacterTypesSchema,
 
-    /*
-     * チームブースト
-     */
     teamBoost:
       TeamBoostSchema.optional(),
 
-    /*
-     * Tier
-     */
     tier:
       CharacterTierSchema,
 
-    /*
-     * キャラクター画像
-     */
     imageUrl:
       z
         .string()
         .url()
         .optional(),
 
-    /*
-     * 長所
-     */
     strengths:
       z
         .array(
@@ -548,9 +567,6 @@ export const CreateCharacterSchema =
         )
         .default([]),
 
-    /*
-     * 短所
-     */
     weaknesses:
       z
         .array(
@@ -558,9 +574,6 @@ export const CreateCharacterSchema =
         )
         .default([]),
 
-    /*
-     * おすすめメダル
-     */
     recommendedMedals:
       z
         .array(
@@ -568,9 +581,6 @@ export const CreateCharacterSchema =
         )
         .default([]),
 
-    /*
-     * 関連キャラクター
-     */
     relatedCharacters:
       z
         .array(
@@ -581,8 +591,6 @@ export const CreateCharacterSchema =
 
 /* ============================================================
  * Update Character
- *
- * IDは変更不可
  * ============================================================ */
 
 export const UpdateCharacterSchema =
@@ -604,11 +612,20 @@ export const CharacterResponseSchema =
 
     name: z.string(),
 
-    reading: z.string().optional(),
-    faction: z.string().optional(),
-    description: z.string().optional(),
-    tags: z.array(z.string()),
-    implementedAt: z.date().optional(),
+    reading:
+      z.string().optional(),
+
+    faction:
+      z.string().optional(),
+
+    description:
+      z.string().optional(),
+
+    tags:
+      z.array(z.string()),
+
+    implementedAt:
+      z.date().optional(),
 
     attribute:
       CharacterAttributeChangeSchema,
@@ -661,10 +678,6 @@ export const CharacterResponseSchema =
     updatedAt:
       z.date(),
   });
-
-/* ============================================================
- * Character Types
- * ============================================================ */
 
 export type CreateCharacterInput =
   z.infer<
