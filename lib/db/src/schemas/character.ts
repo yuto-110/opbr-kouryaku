@@ -1,24 +1,26 @@
-import { Schema, model, type Document } from 'mongoose';
-import { z } from 'zod';
+import { Schema, model, type Document } from "mongoose";
+import { z } from "zod";
 
 export const CharacterAttributeEnum = z.enum([
-  '赤',
-  '青',
-  '緑',
-  '黒',
-  '白',
+  "赤",
+  "青",
+  "緑",
+  "黒",
+  "白",
 ]);
 
 export const CharacterRoleEnum = z.enum([
-  'アタッカー',
-  'ゲッター',
-  'ディフェンダー',
+  "アタッカー",
+  "ゲッター",
+  "ディフェンダー",
 ]);
 
 export const CharacterRarityEnum = z.enum([
-  'レジェンダリー',
-  '超レジェンダリー',
-  '恒常',
+  "超レジェンダリー",
+  "レジェンダリー",
+  "恒常",
+  "配布",
+  "コーラ",
 ]);
 
 export const CharacterInitialStarsEnum = z.union([
@@ -28,13 +30,15 @@ export const CharacterInitialStarsEnum = z.union([
 ]);
 
 export const CharacterTierEnum = z.enum([
-  'SS',
-  'S+',
-  'S',
-  'A+',
-  'A',
-  'B+',
-  'B',
+  "SS",
+  "S+",
+  "S",
+  "A+",
+  "A",
+  "B+",
+  "B",
+  "圏外",
+  "評価中",
 ]);
 
 export type CharacterAttribute = z.infer<typeof CharacterAttributeEnum>;
@@ -58,11 +62,7 @@ export interface ILevelStat extends IStatValues {
 }
 
 export interface ICharacterStats {
-  // 実測できたLvごとのステータス
   levelStats: ILevelStat[];
-
-  // Lv100 + オーバーブースト時の最大ステータス
-  // データがまだないキャラクターも登録できるように任意にする
   level100Overboost?: IStatValues;
 }
 
@@ -74,10 +74,31 @@ export interface IChangeOption<T> {
 export interface ISkill {
   name: string;
   description: string;
+
+  /** 威力（%） */
+  power?: number;
+
+  /** クールタイム（秒） */
   cooldown?: number;
+
+  /** ダメージ減少無視 */
+  damageReductionIgnore?: boolean;
+
+  /** 防御力無視 */
+  defenseIgnore?: boolean;
+
+  /** 状態異常 */
+  statusAilment?: string;
+
+  /** 状態異常・追加効果の時間（秒） */
+  duration?: number;
+
+  /** その他の効果 */
+  extraEffects: string[];
 }
 
 export interface ITrait {
+  slot: "キャラ特性" | "特性1" | "特性2" | "その他";
   name: string;
   effect: string;
 }
@@ -85,102 +106,87 @@ export interface ITrait {
 export interface ICharacterType {
   typeId: string;
   name: string;
-  effect?: string;
-  effectLevel?: number;
+  effect: string;
+}
+
+export interface ITeamBoost {
+  boostId: string;
+  name: string;
+  effect: string;
 }
 
 export interface ICharacter extends Document {
   id: string;
-
   name: string;
-  reading: string;
 
-  // キャラクターが最初に持っている属性
-  // 変化する場合は changesTo に記録
   attribute: IChangeOption<CharacterAttribute>;
-
-  // キャラクターが最初に持っているスタイル
-  // 戦闘中に変化する場合は changesTo に記録
   role: IChangeOption<CharacterRole>;
 
   rarity: CharacterRarity;
-
-  // キャラクターが最初に持っている★
-  // 実際の所持キャラクターの現在★はUser側で管理
   initialStars: CharacterInitialStars;
 
   stats: ICharacterStats;
 
-  // キャラクターの説明
-  description?: string;
-
-  // スキル
   skills: ISkill[];
-
-  // 特性
   traits: ITrait[];
 
-  // 新世界、海軍などのキャラクタータイプ
   characterTypes: ICharacterType[];
 
-  // チームブースト
-  teamBoost?: string;
+  teamBoost?: ITeamBoost;
 
-  // 現在の評価ティア
   tier: CharacterTier;
 
-  // キャラクター画像
   imageUrl?: string;
 
-  // 長所
   strengths: string[];
-
-  // 短所
   weaknesses: string[];
 
-  // おすすめメダル
   recommendedMedals: string[];
-
-  // 関連キャラクター
   relatedCharacters: string[];
-
-  // 実装日
-  implementedAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;
 }
+
+/* =========================
+ * Status
+ * ========================= */
 
 const statValuesSchema = new Schema<IStatValues>(
   {
     totalPower: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     hp: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     attack: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     defense: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     critical: {
       type: Number,
       required: true,
+      min: 0,
     },
   },
   {
     _id: false,
-  },
+  }
 );
 
 const levelStatSchema = new Schema<ILevelStat>(
@@ -195,54 +201,45 @@ const levelStatSchema = new Schema<ILevelStat>(
     totalPower: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     hp: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     attack: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     defense: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     critical: {
       type: Number,
       required: true,
+      min: 0,
     },
   },
   {
     _id: false,
-  },
+  }
 );
 
 const characterStatsSchema = new Schema<ICharacterStats>(
   {
-    // 実際に確認できたレベルのステータスだけ登録可能
     levelStats: {
       type: [levelStatSchema],
       default: [],
-      validate: {
-        validator: (values: ILevelStat[]) =>
-          values.every(
-            (value) =>
-              Number.isInteger(value.level) &&
-              value.level >= 1 &&
-              value.level <= 100,
-          ),
-        message:
-          'levelStats.level must be an integer from 1 to 100',
-      },
     },
 
-    // Lv100 + オーバーブースト最大時のステータス
-    // まだデータがないキャラクターは未設定でもOK
     level100Overboost: {
       type: statValuesSchema,
       required: false,
@@ -250,8 +247,12 @@ const characterStatsSchema = new Schema<ICharacterStats>(
   },
   {
     _id: false,
-  },
+  }
 );
+
+/* =========================
+ * Skills
+ * ========================= */
 
 const skillSchema = new Schema<ISkill>(
   {
@@ -265,18 +266,62 @@ const skillSchema = new Schema<ISkill>(
       required: true,
     },
 
+    power: {
+      type: Number,
+      min: 0,
+    },
+
     cooldown: {
       type: Number,
       min: 0,
     },
+
+    damageReductionIgnore: {
+      type: Boolean,
+      default: false,
+    },
+
+    defenseIgnore: {
+      type: Boolean,
+      default: false,
+    },
+
+    statusAilment: {
+      type: String,
+    },
+
+    duration: {
+      type: Number,
+      min: 0,
+    },
+
+    extraEffects: {
+      type: [String],
+      default: [],
+    },
   },
   {
     _id: false,
-  },
+  }
 );
+
+/* =========================
+ * Traits
+ * ========================= */
 
 const traitSchema = new Schema<ITrait>(
   {
+    slot: {
+      type: String,
+      enum: [
+        "キャラ特性",
+        "特性1",
+        "特性2",
+        "その他",
+      ],
+      required: true,
+    },
+
     name: {
       type: String,
       required: true,
@@ -289,8 +334,12 @@ const traitSchema = new Schema<ITrait>(
   },
   {
     _id: false,
-  },
+  }
 );
+
+/* =========================
+ * Character Types
+ * ========================= */
 
 const characterTypeSchema = new Schema<ICharacterType>(
   {
@@ -306,17 +355,43 @@ const characterTypeSchema = new Schema<ICharacterType>(
 
     effect: {
       type: String,
-    },
-
-    effectLevel: {
-      type: Number,
-      min: 0,
+      required: true,
     },
   },
   {
     _id: false,
-  },
+  }
 );
+
+/* =========================
+ * Team Boost
+ * ========================= */
+
+const teamBoostSchema = new Schema<ITeamBoost>(
+  {
+    boostId: {
+      type: String,
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    effect: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================
+ * Character
+ * ========================= */
 
 const characterSchema = new Schema<ICharacter>(
   {
@@ -333,13 +408,6 @@ const characterSchema = new Schema<ICharacter>(
       required: true,
     },
 
-    reading: {
-      type: String,
-      required: true,
-    },
-
-    // 基本属性
-    // 戦闘中に属性が変化する場合は changesTo に記録
     attribute: {
       base: {
         type: String,
@@ -354,8 +422,6 @@ const characterSchema = new Schema<ICharacter>(
       },
     },
 
-    // 基本スタイル
-    // 戦闘中にスタイルが変化する場合は changesTo に記録
     role: {
       base: {
         type: String,
@@ -370,116 +436,92 @@ const characterSchema = new Schema<ICharacter>(
       },
     },
 
-    // レアリティ
     rarity: {
       type: String,
       enum: CharacterRarityEnum.options,
       required: true,
     },
 
-    // 初期★
     initialStars: {
       type: Number,
-      enum: CharacterInitialStarsEnum.options,
+      enum: [2, 3, 4],
       required: true,
     },
 
-    // ステータス
     stats: {
       type: characterStatsSchema,
       required: true,
     },
 
-    // 説明
-    description: {
-      type: String,
-    },
-
-    // スキル
     skills: {
       type: [skillSchema],
       default: [],
     },
 
-    // 特性
     traits: {
       type: [traitSchema],
       default: [],
     },
 
-    // キャラクタータイプ
     characterTypes: {
       type: [characterTypeSchema],
       default: [],
     },
 
-    // チームブースト
     teamBoost: {
-      type: String,
+      type: teamBoostSchema,
+      required: false,
     },
 
-    // ティア
     tier: {
       type: String,
       enum: CharacterTierEnum.options,
       required: true,
     },
 
-    // 画像
     imageUrl: {
       type: String,
     },
 
-    // 長所
     strengths: {
       type: [String],
       default: [],
     },
 
-    // 短所
     weaknesses: {
       type: [String],
       default: [],
     },
 
-    // おすすめメダル
     recommendedMedals: {
       type: [String],
       default: [],
     },
 
-    // 関連キャラクター
     relatedCharacters: {
       type: [String],
       default: [],
     },
-
-    // 実装日
-    implementedAt: {
-      type: Date,
-    },
   },
   {
     timestamps: true,
-  },
+  }
 );
 
-// インデックス
-characterSchema.index(
-  { id: 1 },
-  { unique: true },
-);
+/* =========================
+ * Indexes
+ * ========================= */
 
 characterSchema.index({
   name: 1,
 });
 
 characterSchema.index({
-  'attribute.base': 1,
+  "attribute.base": 1,
 });
 
 characterSchema.index({
-  'role.base': 1,
+  "role.base": 1,
 });
 
 characterSchema.index({
@@ -491,14 +533,14 @@ characterSchema.index({
 });
 
 characterSchema.index({
-  'characterTypes.typeId': 1,
+  "characterTypes.typeId": 1,
 });
 
 characterSchema.index({
-  teamBoost: 1,
+  "teamBoost.boostId": 1,
 });
 
 export const Character = model<ICharacter>(
-  'Character',
-  characterSchema,
+  "Character",
+  characterSchema
 );

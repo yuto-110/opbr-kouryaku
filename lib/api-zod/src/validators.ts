@@ -1,23 +1,30 @@
-import { z } from 'zod';
+import { z } from "zod";
+
+/* ============================================================
+ * Health
+ * ============================================================ */
 
 export const HealthCheckResponse = z.object({
-  status: z.literal('ok'),
+  status: z.literal("ok"),
 });
 
-// ============================================================
-// User
-// ============================================================
+/* ============================================================
+ * User
+ * ============================================================ */
 
 export const UserRoleSchema = z.enum([
-  'admin',
-  'user',
+  "admin",
+  "user",
 ]);
 
 export const CreateUserSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
   password: z.string().min(8).max(128),
-  role: UserRoleSchema.default('user'),
+
+  // 通常のアカウント作成ではAPI側で user に固定する。
+  // 管理者権限をクライアントから付与できないようにする。
+  role: z.literal("user").default("user"),
 });
 
 export const LoginSchema = z.object({
@@ -34,32 +41,42 @@ export const UserResponseSchema = z.object({
   updatedAt: z.date(),
 });
 
-export type CreateUserInput = z.infer<typeof CreateUserSchema>;
-export type LoginInput = z.infer<typeof LoginSchema>;
-export type UserResponse = z.infer<typeof UserResponseSchema>;
+export type CreateUserInput = z.infer<
+  typeof CreateUserSchema
+>;
 
-// ============================================================
-// Character
-// ============================================================
+export type LoginInput = z.infer<
+  typeof LoginSchema
+>;
+
+export type UserResponse = z.infer<
+  typeof UserResponseSchema
+>;
+
+/* ============================================================
+ * Character - Basic
+ * ============================================================ */
 
 export const CharacterAttributeSchema = z.enum([
-  '赤',
-  '青',
-  '緑',
-  '黒',
-  '白',
+  "赤",
+  "青",
+  "緑",
+  "黒",
+  "白",
 ]);
 
 export const CharacterRoleSchema = z.enum([
-  'アタッカー',
-  'ゲッター',
-  'ディフェンダー',
+  "アタッカー",
+  "ゲッター",
+  "ディフェンダー",
 ]);
 
 export const CharacterRaritySchema = z.enum([
-  'レジェンダリー',
-  '超レジェンダリー',
-  '恒常',
+  "超レジェンダリー",
+  "レジェンダリー",
+  "恒常",
+  "配布",
+  "コーラ",
 ]);
 
 export const CharacterInitialStarsSchema = z.union([
@@ -69,139 +86,486 @@ export const CharacterInitialStarsSchema = z.union([
 ]);
 
 export const CharacterTierSchema = z.enum([
-  'SS',
-  'S+',
-  'S',
-  'A+',
-  'A',
-  'B+',
-  'B',
+  "SS",
+  "S+",
+  "S",
+  "A+",
+  "A",
+  "B+",
+  "B",
+  "圏外",
+  "評価中",
 ]);
+
+export type CharacterAttribute = z.infer<
+  typeof CharacterAttributeSchema
+>;
+
+export type CharacterRole = z.infer<
+  typeof CharacterRoleSchema
+>;
+
+export type CharacterRarity = z.infer<
+  typeof CharacterRaritySchema
+>;
+
+export type CharacterInitialStars = z.infer<
+  typeof CharacterInitialStarsSchema
+>;
+
+export type CharacterTier = z.infer<
+  typeof CharacterTierSchema
+>;
+
+/* ============================================================
+ * Change Option
+ *
+ * 属性・役職などが途中で変化するキャラクター用
+ * ============================================================ */
 
 const ChangeOptionSchema = <T extends z.ZodTypeAny>(
   schema: T,
 ) =>
   z.object({
     base: schema,
-    changesTo: z.array(schema).default([]),
+
+    changesTo: z
+      .array(schema)
+      .default([]),
   });
 
-const StatValuesSchema = z.object({
-  totalPower: z.number().min(0),
-  hp: z.number().min(0),
-  attack: z.number().min(0),
-  defense: z.number().min(0),
-  critical: z.number().min(0),
-});
-
-const LevelStatSchema = StatValuesSchema.extend({
-  level: z.number().int().min(1).max(100),
-});
-
-const CharacterStatsSchema = z.object({
-  levelStats: z.array(LevelStatSchema).default([]),
-
-  level100Overboost: StatValuesSchema.optional(),
-});
-
-const SkillSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().min(1).max(2000),
-  cooldown: z.number().min(0).optional(),
-});
-
-const TraitSchema = z.object({
-  name: z.string().min(1).max(200),
-  effect: z.string().min(1).max(2000),
-});
-
-const CharacterTypeSchema = z.object({
-  typeId: z.string().min(1).max(100),
-  name: z.string().min(1).max(200),
-  effect: z.string().max(2000).optional(),
-  effectLevel: z.number().int().min(0).optional(),
-});
-
-const CharacterIdSchema = z
-  .string()
-  .toLowerCase()
-  .regex(
-    /^[a-z0-9-]+$/,
-    'IDは半角小文字英数字とハイフンのみ使用できます',
+export const CharacterAttributeChangeSchema =
+  ChangeOptionSchema(
+    CharacterAttributeSchema,
   );
 
-const ImplementedAtSchema = z.coerce.date().optional();
-
-export const CreateCharacterSchema = z.object({
-  id: CharacterIdSchema,
-
-  name: z.string().min(1).max(100),
-
-  reading: z.string().min(1).max(100),
-
-  attribute: ChangeOptionSchema(
-    CharacterAttributeSchema,
-  ),
-
-  role: ChangeOptionSchema(
+export const CharacterRoleChangeSchema =
+  ChangeOptionSchema(
     CharacterRoleSchema,
-  ),
+  );
 
-  rarity: CharacterRaritySchema,
+/* ============================================================
+ * Stats
+ * ============================================================ */
 
-  initialStars: CharacterInitialStarsSchema,
+export const StatValuesSchema = z.object({
+  totalPower: z
+    .number()
+    .int()
+    .min(0),
 
-  stats: CharacterStatsSchema,
+  hp: z
+    .number()
+    .int()
+    .min(0),
 
+  attack: z
+    .number()
+    .int()
+    .min(0),
+
+  defense: z
+    .number()
+    .int()
+    .min(0),
+
+  critical: z
+    .number()
+    .min(0),
+});
+
+export const LevelStatSchema =
+  StatValuesSchema.extend({
+    level: z
+      .number()
+      .int()
+      .min(1)
+      .max(100),
+  });
+
+export const CharacterStatsSchema = z.object({
+  /*
+   * Lv1〜Lv100の各レベルのステータス
+   *
+   * 例:
+   * [
+   *   {
+   *     level: 1,
+   *     totalPower: 1000,
+   *     hp: 1000,
+   *     attack: 500,
+   *     defense: 500,
+   *     critical: 11
+   *   }
+   * ]
+   */
+  levelStats: z
+    .array(LevelStatSchema)
+    .default([]),
+
+  /*
+   * Lv100 + 超過ブースト時のステータス
+   */
+  level100Overboost:
+    StatValuesSchema.optional(),
+});
+
+/* ============================================================
+ * Skills
+ * ============================================================ */
+
+export const SkillSchema = z.object({
+  /*
+   * スキル名
+   */
+  name: z
+    .string()
+    .min(1)
+    .max(200),
+
+  /*
+   * スキルの効果説明
+   */
   description: z
     .string()
-    .max(5000)
+    .min(1)
+    .max(5000),
+
+  /*
+   * 威力（%）
+   *
+   * 例:
+   * 150
+   * 300
+   * 500
+   */
+  power: z
+    .number()
+    .min(0)
     .optional(),
 
-  skills: z
-    .array(SkillSchema)
-    .default([]),
+  /*
+   * クールタイム（秒）
+   */
+  cooldown: z
+    .number()
+    .min(0)
+    .optional(),
 
-  traits: z
-    .array(TraitSchema)
-    .default([]),
+  /*
+   * ダメージ減少無視
+   */
+  damageReductionIgnore: z
+    .boolean()
+    .default(false),
 
-  characterTypes: z
-    .array(CharacterTypeSchema)
-    .default([]),
+  /*
+   * 防御力無視
+   */
+  defenseIgnore: z
+    .boolean()
+    .default(false),
 
-  teamBoost: z
+  /*
+   * 状態異常
+   *
+   * 例:
+   * 気絶
+   * 燃焼
+   * 凍結
+   * 感電
+   */
+  statusAilment: z
     .string()
     .max(200)
     .optional(),
 
-  tier: CharacterTierSchema,
-
-  imageUrl: z
-    .string()
-    .url()
+  /*
+   * 状態異常・追加効果の時間
+   */
+  duration: z
+    .number()
+    .min(0)
     .optional(),
 
-  strengths: z
-    .array(z.string().max(500))
+  /*
+   * その他の効果
+   *
+   * 複数登録可能
+   */
+  extraEffects: z
+    .array(
+      z.string().max(2000),
+    )
     .default([]),
-
-  weaknesses: z
-    .array(z.string().max(500))
-    .default([]),
-
-  recommendedMedals: z
-    .array(z.string().max(200))
-    .default([]),
-
-  relatedCharacters: z
-    .array(z.string().max(100))
-    .default([]),
-
-  implementedAt: ImplementedAtSchema,
 });
 
-// IDは更新後も変えない
+export const SkillsSchema = z
+  .array(SkillSchema)
+  .default([]);
+
+/* ============================================================
+ * Traits
+ * ============================================================ */
+
+export const TraitSlotSchema = z.enum([
+  "キャラ特性",
+  "特性1",
+  "特性2",
+  "その他",
+]);
+
+export const TraitSchema = z.object({
+  /*
+   * どの特性枠なのか
+   */
+  slot: TraitSlotSchema,
+
+  /*
+   * 特性名
+   *
+   * 例:
+   * キャラ特性
+   * 特性1
+   * 特性2
+   */
+  name: z
+    .string()
+    .min(1)
+    .max(200),
+
+  /*
+   * 効果説明
+   */
+  effect: z
+    .string()
+    .min(1)
+    .max(5000),
+});
+
+export const TraitsSchema = z
+  .array(TraitSchema)
+  .default([]);
+
+/* ============================================================
+ * Character Type
+ *
+ * マスターデータから選択する形式
+ * ============================================================ */
+
+export const CharacterTypeSchema = z.object({
+  /*
+   * マスターデータのID
+   */
+  typeId: z
+    .string()
+    .min(1)
+    .max(100),
+
+  /*
+   * マスター側で定義された名称
+   */
+  name: z
+    .string()
+    .min(1)
+    .max(200),
+
+  /*
+   * マスター側で定義された効果
+   */
+  effect: z
+    .string()
+    .min(1)
+    .max(5000),
+});
+
+export const CharacterTypesSchema = z
+  .array(CharacterTypeSchema)
+  .default([]);
+
+/* ============================================================
+ * Team Boost
+ *
+ * マスターデータから選択する形式
+ * ============================================================ */
+
+export const TeamBoostSchema = z.object({
+  /*
+   * マスターデータのID
+   */
+  boostId: z
+    .string()
+    .min(1)
+    .max(100),
+
+  /*
+   * チームブースト名
+   */
+  name: z
+    .string()
+    .min(1)
+    .max(200),
+
+  /*
+   * 効果説明
+   */
+  effect: z
+    .string()
+    .min(1)
+    .max(5000),
+});
+
+/* ============================================================
+ * Common Character Fields
+ * ============================================================ */
+
+const CharacterIdSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(100)
+  .regex(
+    /^[a-z0-9-]+$/,
+    "IDは半角小文字英数字とハイフンのみ使用できます",
+  );
+
+/* ============================================================
+ * Create Character
+ * ============================================================ */
+
+export const CreateCharacterSchema =
+  z.object({
+    /*
+     * 内部ID
+     */
+    id: CharacterIdSchema,
+
+    /*
+     * キャラクター名
+     */
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100),
+
+    /*
+     * 属性
+     */
+    attribute:
+      CharacterAttributeChangeSchema,
+
+    /*
+     * 役職
+     */
+    role:
+      CharacterRoleChangeSchema,
+
+    /*
+     * レアリティ
+     */
+    rarity:
+      CharacterRaritySchema,
+
+    /*
+     * 初期★
+     */
+    initialStars:
+      CharacterInitialStarsSchema,
+
+    /*
+     * ステータス
+     */
+    stats:
+      CharacterStatsSchema,
+
+    /*
+     * スキル
+     */
+    skills:
+      SkillsSchema,
+
+    /*
+     * 特性
+     */
+    traits:
+      TraitsSchema,
+
+    /*
+     * キャラクタータイプ
+     */
+    characterTypes:
+      CharacterTypesSchema,
+
+    /*
+     * チームブースト
+     */
+    teamBoost:
+      TeamBoostSchema.optional(),
+
+    /*
+     * Tier
+     */
+    tier:
+      CharacterTierSchema,
+
+    /*
+     * キャラクター画像
+     */
+    imageUrl:
+      z
+        .string()
+        .url()
+        .optional(),
+
+    /*
+     * 長所
+     */
+    strengths:
+      z
+        .array(
+          z.string().max(500),
+        )
+        .default([]),
+
+    /*
+     * 短所
+     */
+    weaknesses:
+      z
+        .array(
+          z.string().max(500),
+        )
+        .default([]),
+
+    /*
+     * おすすめメダル
+     */
+    recommendedMedals:
+      z
+        .array(
+          z.string().max(200),
+        )
+        .default([]),
+
+    /*
+     * 関連キャラクター
+     */
+    relatedCharacters:
+      z
+        .array(
+          z.string().max(100),
+        )
+        .default([]),
+  });
+
+/* ============================================================
+ * Update Character
+ *
+ * IDは変更不可
+ * ============================================================ */
+
 export const UpdateCharacterSchema =
   CreateCharacterSchema
     .omit({
@@ -209,66 +573,163 @@ export const UpdateCharacterSchema =
     })
     .partial();
 
-export const CharacterResponseSchema = z.object({
-  _id: z.string(),
+/* ============================================================
+ * Character Response
+ * ============================================================ */
 
-  id: z.string(),
+export const CharacterResponseSchema =
+  z.object({
+    _id: z.string(),
 
-  name: z.string(),
+    id: z.string(),
 
-  reading: z.string(),
+    name: z.string(),
 
-  attribute: ChangeOptionSchema(
-    CharacterAttributeSchema,
-  ),
+    attribute:
+      CharacterAttributeChangeSchema,
 
-  role: ChangeOptionSchema(
-    CharacterRoleSchema,
-  ),
+    role:
+      CharacterRoleChangeSchema,
 
-  rarity: CharacterRaritySchema,
+    rarity:
+      CharacterRaritySchema,
 
-  initialStars: CharacterInitialStarsSchema,
+    initialStars:
+      CharacterInitialStarsSchema,
 
-  stats: CharacterStatsSchema,
+    stats:
+      CharacterStatsSchema,
 
-  description: z.string().optional(),
+    skills:
+      z.array(SkillSchema),
 
-  skills: z.array(SkillSchema),
+    traits:
+      z.array(TraitSchema),
 
-  traits: z.array(TraitSchema),
+    characterTypes:
+      z.array(CharacterTypeSchema),
 
-  characterTypes: z.array(CharacterTypeSchema),
+    teamBoost:
+      TeamBoostSchema.optional(),
 
-  teamBoost: z.string().optional(),
+    tier:
+      CharacterTierSchema,
 
-  tier: CharacterTierSchema,
+    imageUrl:
+      z.string().optional(),
 
-  imageUrl: z.string().optional(),
+    strengths:
+      z.array(z.string()),
 
-  strengths: z.array(z.string()),
+    weaknesses:
+      z.array(z.string()),
 
-  weaknesses: z.array(z.string()),
+    recommendedMedals:
+      z.array(z.string()),
 
-  recommendedMedals: z.array(z.string()),
+    relatedCharacters:
+      z.array(z.string()),
 
-  relatedCharacters: z.array(z.string()),
+    createdAt:
+      z.date(),
 
-  implementedAt: z.date().optional(),
+    updatedAt:
+      z.date(),
+  });
 
-  createdAt: z.date(),
+/* ============================================================
+ * Character Types
+ * ============================================================ */
 
-  updatedAt: z.date(),
-});
+export type CreateCharacterInput =
+  z.infer<
+    typeof CreateCharacterSchema
+  >;
 
-export type CreateCharacterInput = z.infer<
-  typeof CreateCharacterSchema
->;
+export type UpdateCharacterInput =
+  z.infer<
+    typeof UpdateCharacterSchema
+  >;
 
-export type UpdateCharacterInput = z.infer<
-  typeof UpdateCharacterSchema
->;
+export type CharacterResponse =
+  z.infer<
+    typeof CharacterResponseSchema
+  >;
 
-export type CharacterResponse = z.infer<
-  typeof CharacterResponseSchema
->;
+/* ============================================================
+ * Team Boost Master
+ * ============================================================ */
+
+export const TeamBoostMasterSchema =
+  z.object({
+    boostId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100),
+
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200),
+
+    effect: z
+      .string()
+      .trim()
+      .min(1)
+      .max(5000),
+
+    order: z
+      .number()
+      .int()
+      .default(0),
+
+    active: z
+      .boolean()
+      .default(true),
+  });
+
+export type TeamBoostMaster =
+  z.infer<
+    typeof TeamBoostMasterSchema
+  >;
+
+/* ============================================================
+ * Character Type Master
+ * ============================================================ */
+
+export const CharacterTypeMasterSchema =
+  z.object({
+    typeId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100),
+
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200),
+
+    effect: z
+      .string()
+      .trim()
+      .min(1)
+      .max(5000),
+
+    order: z
+      .number()
+      .int()
+      .default(0),
+
+    active: z
+      .boolean()
+      .default(true),
+  });
+
+export type CharacterTypeMaster =
+  z.infer<
+    typeof CharacterTypeMasterSchema
+  >;
