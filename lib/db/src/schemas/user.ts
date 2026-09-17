@@ -14,8 +14,11 @@ export interface IOwnedCharacter {
   // 現在のレベル
   level: number;
 
-  // オーバーブースト段階
-  overboost: number;
+  // ブースト段階
+  // 0 = 未ブースト
+  // 1〜3 = 通常ブースト
+  // 4 = オーバーブースト
+  boostLevel: number;
 }
 
 export interface ISavedTeam {
@@ -72,36 +75,39 @@ const userSchema = new Schema<IUser>(
     },
 
     ownedCharacters: {
-  type: [
-    {
-      characterId: {
-        type: String,
-        required: true,
-      },
+      type: [
+        {
+          characterId: {
+            type: String,
+            required: true,
+          },
 
-      stars: {
-        type: Number,
-        required: true,
-        min: 2,
-        max: 6,
-      },
+          stars: {
+            type: Number,
+            required: true,
+            min: 2,
+            max: 6,
+          },
 
-      level: {
-        type: Number,
-        default: 1,
-        min: 1,
-        max: 100,
-      },
+          level: {
+            type: Number,
+            required: true,
+            default: 1,
+            min: 1,
+            max: 100,
+          },
 
-      overboost: {
-        type: Number,
-        default: 0,
-        min: 0,
-      },
+          boostLevel: {
+            type: Number,
+            required: true,
+            default: 0,
+            min: 0,
+            max: 4,
+          },
+        },
+      ],
+      default: [],
     },
-  ],
-  default: [],
-},
 
     favoriteCharacters: {
       type: [String],
@@ -115,6 +121,7 @@ const userSchema = new Schema<IUser>(
             type: String,
             required: true,
           },
+
           characterIds: {
             type: [String],
             default: [],
@@ -131,6 +138,7 @@ const userSchema = new Schema<IUser>(
             type: String,
             required: true,
           },
+
           medalIds: {
             type: [String],
             default: [],
