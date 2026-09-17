@@ -7,7 +7,15 @@ export type UserRole = z.infer<typeof UserRoleEnum>;
 
 export interface IOwnedCharacter {
   characterId: string;
+
+  // 現在の★
+  stars: number;
+
+  // 現在のレベル
   level: number;
+
+  // オーバーブースト段階
+  overboost: number;
 }
 
 export interface ISavedTeam {
