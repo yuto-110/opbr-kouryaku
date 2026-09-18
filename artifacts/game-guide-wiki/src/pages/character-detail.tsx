@@ -292,6 +292,67 @@ function SkillGroup({
   );
 }
 
+function TraitPresentation({
+  traits,
+}: {
+  traits: NonNullable<Character["traits"]>;
+}) {
+  const targets = Array.from(
+    new Set(traits.map((trait) => trait.target || "共通")),
+  );
+  const [target, setTarget] = useState(targets[0] ?? "共通");
+
+  const targetTraits = traits.filter(
+    (trait) => (trait.target || "共通") === target,
+  );
+
+  return (
+    <div className="space-y-4">
+      {targets.length > 1 && (
+        <div className="flex overflow-x-auto rounded-md border border-border">
+          {targets.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTarget(item)}
+              className={`min-w-32 border-b-2 px-4 py-2 text-sm font-black ${
+                target === item
+                  ? "border-primary bg-primary text-white"
+                  : "border-transparent text-muted-foreground"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {targetTraits.map((trait, index) => {
+        const effects = trait.effects?.length
+          ? trait.effects
+          : [trait.effect ?? ""].filter(Boolean);
+
+        return (
+          <div
+            key={`${trait.name}-${index}`}
+            className="rounded-md border border-border bg-background p-4"
+          >
+            <h3 className="text-sm font-black">{trait.name}</h3>
+
+            {effects.length > 0 && (
+              <div className="mt-2 space-y-1 text-sm leading-7">
+                {effects.map((effect, effectIndex) => (
+                  <div key={`${effect}-${effectIndex}`}>・{effect}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function statRow(label: string, value: number) {
   return (
     <div key={label} className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
