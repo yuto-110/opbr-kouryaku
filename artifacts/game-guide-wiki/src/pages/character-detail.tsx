@@ -116,15 +116,15 @@ function SkillGroup({ title, skills, targets }: { title: string; skills: NonNull
       <div className="border-b-2 border-primary/40 px-5 py-4"><h3 className="text-xl font-black">{title}「{active.name}」</h3></div>
       {variants.length > 1 && <div className="flex overflow-x-auto border-b border-border bg-background px-3 pt-2">{variants.map(({ skill, index }) => <button key={`${skill.name}-${index}`} type="button" onClick={() => setVariantIndex(index)} className={`rounded-t-md border px-4 py-2 text-xs font-black ${index === variantIndex ? "border-primary bg-primary text-white" : "border-border bg-card text-primary"}`}>{labelFor(skill)}</button>)}</div>}
       <div className="p-4 sm:p-6">
-        <div className="grid overflow-hidden rounded-md border border-border md:grid-cols-[190px_1fr]">
-          <div className="grid min-h-40 place-items-center border-b border-border bg-muted p-4 md:border-b-0 md:border-r">{active.imageUrl ? <img src={active.imageUrl} alt="" className="max-h-44 w-full object-contain" /> : <div className="text-xs font-bold text-muted-foreground">SKILL IMAGE</div>}</div>
+        <div className="grid overflow-hidden rounded-md border border-border md:grid-cols-[112px_1fr]">
+          <div className="grid h-[112px] w-[112px] place-items-center border-b border-border bg-muted p-3 md:border-b-0 md:border-r">{active.imageUrl ? <img src={active.imageUrl} alt="" className="h-20 w-20 object-contain" /> : <div className="text-[10px] font-bold text-muted-foreground">SKILL ICON</div>}</div>
           <div className="p-4">
             {(active.stages ?? []).length > 0 ? <div className="space-y-2">{active.stages?.map((stage, i) => <div key={i} className="border-b border-border pb-2 last:border-b-0"><div className="text-sm font-bold">{stage.label || `${i + 1}段目`}{stage.power !== undefined ? `：スキル威力${stage.power}` : ""}</div>{stage.cooldown !== undefined && <div className="text-sm">クールタイム{stage.cooldown}秒</div>}{stage.effect && <div className="mt-1 text-sm text-muted-foreground">{stage.effect}</div>}</div>)}</div> : <div className="space-y-1 text-sm">{active.power !== undefined && <div>1段目：スキル威力{active.power}</div>}{active.cooldown !== undefined && <div>クールタイム{active.cooldown}秒</div>}</div>}
             {active.effectTags?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{active.effectTags.map((tag) => <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">{tag}</span>)}</div> : null}
             {active.statusAilments?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{active.statusAilments.map((tag) => <span key={tag} className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">{tag}</span>)}</div> : null}
           </div>
         </div>
-        <div className="mt-4 whitespace-pre-line text-sm leading-7">{active.description}</div>
+        <div className="mt-4 border-t border-border pt-4"><div className="mb-2 text-xs font-black text-muted-foreground">詳細</div><div className="whitespace-pre-line text-sm leading-7">{active.description}</div></div>
         {(active.changeCondition || active.changeDuration !== undefined) && <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-xs leading-6"><b>スキル変化条件</b>{active.changeCondition ? `：${active.changeCondition}` : ""}{active.changeDuration !== undefined ? `（${active.changeDuration}秒）` : ""}</div>}
         {active.extraEffects?.length ? <div className="mt-3 space-y-1 text-sm">{active.extraEffects.map((effect) => <div key={effect}>・{effect}</div>)}</div> : null}
       </div>
@@ -240,6 +240,7 @@ export default function CharacterDetailPage() {
   }
 
   const levelStats = character.stats?.levelStats ?? [];
+  const overboostStats = character.stats?.level100Overboost ?? null;
   const latestStats = levelStats.length
     ? [...levelStats].sort((a, b) => b.level - a.level)[0]
     : null;
@@ -387,14 +388,30 @@ export default function CharacterDetailPage() {
             <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
               <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">ステータス</h2>
 
-              {latestStats ? (
-                <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                  {statRow("Lv" + latestStats.level + " 総合力", latestStats.totalPower)}
-                  {statRow("HP", latestStats.hp)}
-                  {statRow("攻撃", latestStats.attack)}
-                  {statRow("防御", latestStats.defense)}
-                  {statRow("クリティカル", latestStats.critical)}
-                </div>
+              {latestStats || overboostStats ? (
+                <>
+                  {latestStats ? (
+                    <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
+                      {statRow("Lv" + latestStats.level + " 総合力", latestStats.totalPower)}
+                      {statRow("HP", latestStats.hp)}
+                      {statRow("攻撃", latestStats.attack)}
+                      {statRow("防御", latestStats.defense)}
+                      {statRow("クリティカル", latestStats.critical)}
+                    </div>
+                  ) : null}
+                  {overboostStats ? (
+                    <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
+                      <div className="mb-3 text-xs font-black text-primary">Lv100超過ブースト最大時</div>
+                      <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
+                        {statRow("総合力", overboostStats.totalPower)}
+                        {statRow("HP", overboostStats.hp)}
+                        {statRow("攻撃", overboostStats.attack)}
+                        {statRow("防御", overboostStats.defense)}
+                        {statRow("クリティカル", overboostStats.critical)}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <p className="text-xs text-muted-foreground">ステータスがまだ登録されていません。</p>
               )}

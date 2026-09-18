@@ -301,6 +301,7 @@ type SkillStageForm = {
 };
 
 type SkillForm = {
+  imageFile: File | null;
   skillSlot: "スキル1" | "スキル2" | "その他";
   targetCharacter: string;
   variantOrder: string;
@@ -385,6 +386,7 @@ function emptyStatRow(level = ""): StatRow {
 
 function emptySkill(): SkillForm {
   return {
+    imageFile: null,
     skillSlot: "スキル1",
     targetCharacter: "共通",
     variantOrder: "0",
@@ -474,6 +476,7 @@ function makeForm(character?: Character): FormState {
 
     skills:
       character?.skills?.map((skill) => ({
+        imageFile: null,
         skillSlot: skill.skillSlot ?? "その他",
         targetCharacter: skill.targetCharacter ?? "共通",
         variantOrder: String(skill.variantOrder ?? 0),
@@ -866,7 +869,7 @@ function StatsEditor({
           </h2>
 
           <p className="mt-1 text-[11px] text-muted-foreground">
-            必要なレベルだけ追加できます。
+            通常レベルの数値を登録する場合だけ追加してください。Lv100超過ブースト最大時の数値だけでも保存できます。
           </p>
         </div>
 
@@ -944,7 +947,7 @@ function StatsEditor({
 
       <div className="mt-5 border-t border-border pt-5">
         <div className="text-xs font-black">Lv100超過ブーストのステータス <span className="text-red-600">*</span></div>
-        <p className="mt-1 text-[10px] text-muted-foreground">保存にはこの5項目が必須です。</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">Lv100超過ブースト最大時の5項目。通常Lvの入力は任意です。</p>
         <div className="mt-4 grid gap-3 md:grid-cols-5">
             {(
               [
@@ -1052,7 +1055,25 @@ function SkillsEditor({
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="スキル名" value={skill.name} onChange={(value) => updateSkill(index, { name: value })} placeholder="例：三刀流黒縄大龍巻" />
-              <Field label="スキル画像URL" value={skill.imageUrl} onChange={(value) => updateSkill(index, { imageUrl: value })} placeholder="https://..." />
+              <div>
+                <label className="block text-xs font-black">スキルアイコン</label>
+                <div className="mt-2 flex items-center gap-3 rounded-md border border-dashed border-border bg-card p-3">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                    {skill.imageUrl ? (
+                      <img src={skill.imageUrl} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-[9px] font-bold text-muted-foreground">ICON</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => handleSkillImageChange(index, event)} className="w-full text-[10px]" />
+                    {skill.imageFile && <p className="mt-1 truncate text-[10px] text-muted-foreground">選択中: {skill.imageFile.name}</p>}
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <Field label="既存のスキル画像URL" value={skill.imageUrl} onChange={(value) => updateSkill(index, { imageUrl: value })} placeholder="既存URLを使う場合のみ" />
+                </div>
+              </div>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-card p-3">
@@ -1067,7 +1088,7 @@ function SkillsEditor({
                 {(skill.stages ?? []).map((stage, stageIndex) => (
                   <div key={stageIndex} className="rounded border border-border bg-background p-3">
                     <div className="grid gap-3 md:grid-cols-4">
-                      <Field label="段階名" value={stage.label} onChange={(value) => updateStage(index, stageIndex, { label: value })} placeholder="1段目" />
+                      <Field label="段階名（自由入力）" value={stage.label} onChange={(value) => updateStage(index, stageIndex, { label: value })} placeholder="例：1段目 / 1段目（最大3連続ヒット） / 自由入力" />
                       <Field label="威力" type="number" value={stage.power} onChange={(value) => updateStage(index, stageIndex, { power: value })} />
                       <Field label="CT" type="number" value={stage.cooldown} onChange={(value) => updateStage(index, stageIndex, { cooldown: value })} />
                       <div className="flex items-end"><button type="button" onClick={() => removeStage(index, stageIndex)} className="w-full rounded border border-border px-2 py-2 text-xs text-muted-foreground hover:text-red-600"><Trash2 size={13} className="mx-auto" /></button></div>
@@ -1542,7 +1563,8 @@ export default function AdminCharactersPage() {
 
   async function uploadImageFile(
     file: File,
-    characterId: string,
+    folder: "characters" | "skills",
+    filename: string,
   ) {
     if (!token) {
       throw new Error(
@@ -1632,8 +1654,8 @@ export default function AdminCharactersPage() {
               `Bearer ${token}`,
           },
           body: JSON.stringify({
-            folder: "characters",
-            filename: `${characterId}${ext}`,
+            folder,
+            filename: filename || `image${ext}`,
             contentType: file.type,
             contentBase64,
           }),
@@ -1976,7 +1998,8 @@ export default function AdminCharactersPage() {
         const publicUrl =
           await uploadImageFile(
             imageFile,
-            savedId,
+            "characters",
+            `${savedId}${imageFile.name.includes(".") ? imageFile.name.slice(imageFile.name.lastIndexOf(".")).toLowerCase() : ".webp"}`,
           );
 
         if (publicUrl) {
@@ -2016,6 +2039,52 @@ export default function AdminCharactersPage() {
         }
       }
 
+      // スキルアイコンはキャラクター保存後に assets/skills へアップロードし、
+      // 取得したURLをスキルデータへ反映する。
+      const skillFiles = form.skills
+        .map((skill, index) => ({ skill, index }))
+        .filter(({ skill }) => skill.name.trim() && skill.imageFile);
+
+      if (skillFiles.length > 0) {
+        const updatedSkills = skills.map((skill) => ({ ...skill }));
+        for (const { skill: formSkill, index: formIndex } of skillFiles) {
+          let payloadIndex = 0;
+          for (let i = 0; i < formIndex; i += 1) {
+            if (form.skills[i]?.name.trim()) payloadIndex += 1;
+          }
+          if (payloadIndex >= updatedSkills.length || !formSkill.imageFile) continue;
+          const ext = formSkill.imageFile.name.includes(".")
+            ? formSkill.imageFile.name.slice(formSkill.imageFile.name.lastIndexOf(".")).toLowerCase()
+            : ".webp";
+          const publicUrl = await uploadImageFile(
+            formSkill.imageFile,
+            "skills",
+            `${savedId}-skill-${payloadIndex + 1}-${toNumber(formSkill.variantOrder, "進化順", true) ?? 0}${ext}`,
+          );
+          if (publicUrl) updatedSkills[payloadIndex] = { ...updatedSkills[payloadIndex], imageUrl: publicUrl };
+        }
+
+        const skillResponse = await fetch(
+          `${API_BASE_URL}/characters/${encodeURIComponent(savedId)}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ skills: updatedSkills }),
+          },
+        );
+        if (!skillResponse.ok) {
+          const skillData = await skillResponse.json().catch(() => null);
+          throw new Error(skillData?.message ?? "スキルアイコンのURL保存に失敗しました。");
+        }
+        setForm((current) => ({
+          ...current,
+          skills: current.skills.map((item) => ({ ...item, imageFile: null })),
+        }));
+      }
+
       setMessage(
         editingId
           ? "キャラクターを更新しました。"
@@ -2052,6 +2121,19 @@ export default function AdminCharactersPage() {
       null;
 
     setImageFile(file);
+  }
+
+  function handleSkillImageChange(
+    index: number,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0] ?? null;
+    setForm((current) => ({
+      ...current,
+      skills: current.skills.map((skill, skillIndex) =>
+        skillIndex === index ? { ...skill, imageFile: file } : skill,
+      ),
+    }));
   }
 
   return (
