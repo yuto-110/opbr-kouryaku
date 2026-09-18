@@ -339,6 +339,11 @@ export const SkillSchema = z.object({
     .min(1)
     .max(200),
 
+  skillInfo: z
+    .string()
+    .max(5000)
+    .default(""),
+
   description: z
     .string()
     .min(1)

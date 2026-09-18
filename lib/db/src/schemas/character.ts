@@ -91,6 +91,7 @@ export interface ISkill {
   stages?: ISkillStage[];
   skillType?: "通常" | "ダブルキャラ" | "スタイルチェンジ" | "EVスキル" | "コンボスキル" | "奪取中カウンタースキル";
   name: string;
+  skillInfo: string;
   description: string;
   power?: number;
   cooldown?: number;
@@ -221,6 +222,7 @@ const skillSchema = new Schema<ISkill>(
     imageUrl: { type: String },
     stages: { type: [skillStageSchema], default: [] },
     name: { type: String, required: true },
+    skillInfo: { type: String, default: "" },
     description: { type: String, required: true },
     power: { type: Number, min: 0 },
     cooldown: { type: Number, min: 0 },
