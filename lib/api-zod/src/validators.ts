@@ -153,9 +153,11 @@ export const CHARACTER_TAG_OPTIONS = [
   "サポート型",
 ] as const;
 
-export const CharacterTagSchema = z.enum(
-  CHARACTER_TAG_OPTIONS,
-);
+export const CharacterTagSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100);
 
 export const CharacterTagsSchema = z
   .array(CharacterTagSchema)
