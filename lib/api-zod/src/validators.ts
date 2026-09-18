@@ -232,7 +232,7 @@ export const CharacterStatsSchema = z.object({
     .default([]),
 
   level100Overboost:
-    StatValuesSchema.optional(),
+    StatValuesSchema,
 });
 
 /* ============================================================
@@ -243,7 +243,9 @@ export const SKILL_TYPE_OPTIONS = [
   "通常",
   "ダブルキャラ",
   "スタイルチェンジ",
-  "進化スキル",
+  "EVスキル",
+  "コンボスキル",
+  "奪取中カウンタースキル",
 ] as const;
 
 export const SkillTypeSchema = z.enum(
@@ -371,6 +373,21 @@ export const SkillSchema = z.object({
       z.string().max(2000),
     )
     .default([]),
+
+  changeFromSkillIndex: z
+    .number()
+    .int()
+    .min(0)
+    .optional(),
+
+  changeCondition: z
+    .enum(["一定時間", "コンボ成立時", "奪取中", "条件達成時"])
+    .optional(),
+
+  changeDuration: z
+    .number()
+    .min(0)
+    .optional(),
 });
 
 export const SkillsSchema = z
@@ -392,20 +409,10 @@ export const TraitSlotSchema = z.enum([
 
 export const TraitSchema = z.object({
   slot: TraitSlotSchema,
-
-  /*
-   * 旧データ互換用。
-   * 新管理画面ではeffectを中心に利用する。
-   */
-  name: z
-    .string()
-    .max(200)
-    .default(""),
-
-  effect: z
-    .string()
-    .min(1)
-    .max(5000),
+  target: z.string().max(200).default("共通"),
+  traitName: z.string().max(200).default(""),
+  name: z.string().max(200).default(""),
+  effect: z.string().min(1).max(5000),
 });
 
 export const TraitsSchema = z

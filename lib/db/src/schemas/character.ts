@@ -61,7 +61,7 @@ export interface ILevelStat extends IStatValues {
 
 export interface ICharacterStats {
   levelStats: ILevelStat[];
-  level100Overboost?: IStatValues;
+  level100Overboost: IStatValues;
 }
 
 export interface IChangeOption<T> {
@@ -70,19 +70,27 @@ export interface IChangeOption<T> {
 }
 
 export interface ISkill {
+  skillType?: "通常" | "ダブルキャラ" | "スタイルチェンジ" | "EVスキル" | "コンボスキル" | "奪取中カウンタースキル";
   name: string;
   description: string;
   power?: number;
   cooldown?: number;
   damageReductionIgnore?: boolean;
   defenseIgnore?: boolean;
+  effectTags: string[];
   statusAilment?: string;
+  statusAilments: string[];
   duration?: number;
   extraEffects: string[];
+  changeFromSkillIndex?: number;
+  changeCondition?: "一定時間" | "コンボ成立時" | "奪取中" | "条件達成時";
+  changeDuration?: number;
 }
 
 export interface ITrait {
-  slot: "キャラ特性" | "特性1" | "特性2" | "その他";
+  slot: "キャラ特性" | "スタイル特性" | "特性1" | "特性2" | "ブースト特性" | "その他";
+  target: string;
+  traitName: string;
   name: string;
   effect: string;
 }
@@ -159,7 +167,7 @@ const levelStatSchema = new Schema<ILevelStat>(
 const characterStatsSchema = new Schema<ICharacterStats>(
   {
     levelStats: { type: [levelStatSchema], default: [] },
-    level100Overboost: { type: statValuesSchema, required: false },
+    level100Overboost: { type: statValuesSchema, required: true },
   },
   { _id: false },
 );
@@ -175,6 +183,19 @@ const skillSchema = new Schema<ISkill>(
     statusAilment: { type: String },
     duration: { type: Number, min: 0 },
     extraEffects: { type: [String], default: [] },
+    skillType: {
+      type: String,
+      enum: ["通常", "ダブルキャラ", "スタイルチェンジ", "EVスキル", "コンボスキル", "奪取中カウンタースキル"],
+      default: "通常",
+    },
+    effectTags: { type: [String], default: [] },
+    statusAilments: { type: [String], default: [] },
+    changeFromSkillIndex: { type: Number, min: 0 },
+    changeCondition: {
+      type: String,
+      enum: ["一定時間", "コンボ成立時", "奪取中", "条件達成時"],
+    },
+    changeDuration: { type: Number, min: 0 },
   },
   { _id: false },
 );
@@ -183,9 +204,11 @@ const traitSchema = new Schema<ITrait>(
   {
     slot: {
       type: String,
-      enum: ["キャラ特性", "特性1", "特性2", "その他"],
+      enum: ["キャラ特性", "スタイル特性", "特性1", "特性2", "ブースト特性", "その他"],
       required: true,
     },
+    target: { type: String, required: true, default: "共通" },
+    traitName: { type: String, required: true, default: "" },
     name: { type: String, required: true },
     effect: { type: String, required: true },
   },

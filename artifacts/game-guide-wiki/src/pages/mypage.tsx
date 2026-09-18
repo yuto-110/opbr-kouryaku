@@ -67,6 +67,7 @@ export default function MyPage() {
   const [ownedCharacters, setOwnedCharacters] = useState<
     OwnedCharacter[]
   >([]);
+  const [favoriteCharacters, setFavoriteCharacters] = useState<string[]>([]);
   const [characterMap, setCharacterMap] = useState<
     Record<string, Character>
   >({});
@@ -109,6 +110,7 @@ export default function MyPage() {
 
       setUser(meData.user);
       setOwnedCharacters(meData.ownedCharacters ?? []);
+      setFavoriteCharacters(meData.favoriteCharacters ?? []);
 
       /*
        * 所持キャラクターのIDから実際のキャラクターデータを取得
@@ -402,6 +404,69 @@ export default function MyPage() {
                         </div>
                       )}
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* お気に入りキャラクター */}
+          <section className="mt-8">
+            <div className="mb-4">
+              <div className="data-label">FAVORITE CHARACTERS</div>
+              <h2 className="mt-1 text-lg font-black">お気に入りキャラクター</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                所持していないキャラクターもお気に入り登録できます。
+              </p>
+            </div>
+
+            {favoriteCharacters.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-card p-8 text-center">
+                <Star size={30} className="mx-auto text-muted-foreground" />
+                <p className="mt-3 text-sm font-bold">お気に入りはまだありません</p>
+                <Link
+                  href="/characters"
+                  className="mt-4 inline-flex rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white"
+                >
+                  キャラクター一覧を見る
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {favoriteCharacters.map((characterId) => {
+                  const character = characterMap[characterId];
+                  if (!character) return null;
+                  const isOwned = ownedCharacters.some(
+                    (item) => item.characterId === characterId,
+                  );
+
+                  return (
+                    <Link
+                      key={characterId}
+                      href={`/characters/${characterId}`}
+                      className="flex gap-3 rounded-md border border-card-border bg-card p-3 shadow-card hover:border-primary"
+                    >
+                      {character.imageUrl ? (
+                        <img
+                          src={character.imageUrl}
+                          alt={character.name}
+                          className="h-16 w-16 shrink-0 rounded-sm object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-sm bg-muted text-muted-foreground">
+                          <Gamepad2 size={22} />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-black">{character.name}</p>
+                          <Star size={15} fill="currentColor" className="shrink-0" />
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {isOwned ? "所持中" : "未所持"}
+                        </p>
+                      </div>
+                    </Link>
                   );
                 })}
               </div>

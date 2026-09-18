@@ -17,6 +17,8 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   "https://opbr-kouryaku-api.onrender.com/api";
 
+const TOKEN_KEY = "opbr_access_token";
+
 type Character = {
   id: string;
   name: string;
@@ -81,7 +83,9 @@ export default function CharacterDetailPage() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [allCharacters, setAllCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const [owned, setOwned] = useState(false);
+  const [favorite, setFavorite] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -97,7 +101,32 @@ export default function CharacterDetailPage() {
           return;
         }
 
-        setCharacter((await detailResponse.json()) as Character);
+        const detail = (await detailResponse.json()) as Character;
+        setCharacter(detail);
+
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem(TOKEN_KEY)
+            : null;
+
+        if (token) {
+          const meResponse = await fetch(`${API_BASE_URL}/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            setOwned(
+              (meData.ownedCharacters ?? []).some(
+                (item: { characterId: string }) =>
+                  item.characterId === detail.id,
+              ),
+            );
+            setFavorite(
+              (meData.favoriteCharacters ?? []).includes(detail.id),
+            );
+          }
+        }
 
         if (allResponse.ok) {
           setAllCharacters((await allResponse.json()) as Character[]);
@@ -177,11 +206,81 @@ export default function CharacterDetailPage() {
 
                 <div className="flex gap-2 sm:flex-col">
                   <button
-                    onClick={() => setSaved((v) => !v)}
-                    className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold ${saved ? "bg-primary text-white" : "border border-border bg-background"}`}
+                    disabled={actionLoading}
+                    onClick={async () => {
+                      const token = localStorage.getItem(TOKEN_KEY);
+                      if (!token) {
+                        window.location.href = "/auth";
+                        return;
+                      }
+                      setActionLoading(true);
+                      try {
+                        const response = await fetch(
+                          `${API_BASE_URL}/users/me/characters/${encodeURIComponent(character.id)}`,
+                          owned
+                            ? {
+                                method: "DELETE",
+                                headers: { Authorization: `Bearer ${token}` },
+                              }
+                            : {
+                                method: "POST",
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ characterId: character.id }),
+                              },
+                        );
+                        if (!response.ok && response.status !== 409) {
+                          const data = await response.json().catch(() => null);
+                          throw new Error(data?.message ?? "所持状況の更新に失敗しました");
+                        }
+                        setOwned(!owned);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "所持状況の更新に失敗しました");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold ${owned ? "bg-primary text-white" : "border border-border bg-background"}`}
                   >
-                    <Bookmark size={16} /> {saved ? "保存済み" : "保存"}
+                    <Check size={16} /> {owned ? "所持中" : "未所持"}
                   </button>
+
+                  <button
+                    disabled={actionLoading}
+                    onClick={async () => {
+                      const token = localStorage.getItem(TOKEN_KEY);
+                      if (!token) {
+                        window.location.href = "/auth";
+                        return;
+                      }
+                      setActionLoading(true);
+                      try {
+                        const response = await fetch(
+                          `${API_BASE_URL}/users/me/favorites/${encodeURIComponent(character.id)}`,
+                          {
+                            method: favorite ? "DELETE" : "POST",
+                            headers: { Authorization: `Bearer ${token}` },
+                          },
+                        );
+                        if (!response.ok) {
+                          const data = await response.json().catch(() => null);
+                          throw new Error(data?.message ?? "お気に入りの更新に失敗しました");
+                        }
+                        setFavorite(!favorite);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "お気に入りの更新に失敗しました");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold ${favorite ? "bg-yellow-500 text-white" : "border border-border bg-background"}`}
+                  >
+                    <Bookmark size={16} fill={favorite ? "currentColor" : "none"} />
+                    {favorite ? "お気に入り済み" : "お気に入り"}
+                  </button>
+
                   <button
                     onClick={() => void navigator.clipboard?.writeText(window.location.href)}
                     className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-bold"

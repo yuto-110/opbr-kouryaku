@@ -107,7 +107,9 @@ const SKILL_TYPE_OPTIONS = [
   "通常",
   "ダブルキャラ",
   "スタイルチェンジ",
-  "進化スキル",
+  "EVスキル",
+  "コンボスキル",
+  "奪取中カウンタースキル",
 ] as const;
 
 /*
@@ -288,10 +290,15 @@ type SkillForm = {
   statusAilments: string[];
   duration: string;
   extraEffects: string[];
+  changeFromSkillIndex: string;
+  changeCondition: "" | "一定時間" | "コンボ成立時" | "奪取中" | "条件達成時";
+  changeDuration: string;
 };
 
 type TraitForm = {
   slot: TraitSlot;
+  target: string;
+  traitName: string;
   effect: string;
 };
 
@@ -361,12 +368,17 @@ function emptySkill(): SkillForm {
     statusAilments: [],
     duration: "",
     extraEffects: [],
+    changeFromSkillIndex: "",
+    changeCondition: "",
+    changeDuration: "",
   };
 }
 
 function emptyTrait(): TraitForm {
   return {
     slot: "キャラ特性",
+    target: "共通",
+    traitName: "",
     effect: "",
   };
 }
@@ -463,12 +475,23 @@ function makeForm(character?: Character): FormState {
             : String(skill.duration),
 
         extraEffects: skill.extraEffects ?? [],
+        changeFromSkillIndex:
+          skill.changeFromSkillIndex === undefined
+            ? ""
+            : String(skill.changeFromSkillIndex),
+        changeCondition: skill.changeCondition ?? "",
+        changeDuration:
+          skill.changeDuration === undefined
+            ? ""
+            : String(skill.changeDuration),
       })) ?? [],
 
     traits:
       character?.traits?.map((trait) => ({
         slot: trait.slot ?? "キャラ特性",
-        effect: trait.effect ?? trait.name ?? "",
+        target: trait.target ?? "共通",
+        traitName: trait.traitName ?? trait.name ?? "",
+        effect: trait.effect ?? "",
       })) ?? [],
 
     characterTypes:
@@ -1283,7 +1306,7 @@ function TraitsEditor({
         {form.traits.map((trait, index) => (
           <div
             key={index}
-            className="grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-[180px_1fr_auto]"
+            className="grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-[180px_180px_180px_1fr_auto]"
           >
             <SelectField
               label="特性枠"
@@ -1297,6 +1320,28 @@ function TraitsEditor({
               options={
                 TRAIT_SLOT_OPTIONS
               }
+            />
+
+            <Field
+              label="対象キャラ"
+              value={trait.target}
+              onChange={(value) =>
+                updateTrait(index, {
+                  target: value,
+                })
+              }
+              placeholder="共通 / ルフィ / ロジャー"
+            />
+
+            <Field
+              label="特性名"
+              value={trait.traitName}
+              onChange={(value) =>
+                updateTrait(index, {
+                  traitName: value,
+                })
+              }
+              placeholder="キャラ特性1 / キャラ特性2"
             />
 
             <TextArea
@@ -1858,88 +1903,23 @@ export default function AdminCharactersPage() {
 
   function buildStats() {
     return {
-      levelStats:
-        form.stats
-          .filter(
-            (row) =>
-              row.level.trim(),
-          )
-          .map((row) => ({
-            level: toNumber(
-              row.level,
-              "レベル",
-              true,
-            )!,
-            totalPower:
-              toNumber(
-                row.totalPower,
-                "総合力",
-                true,
-              )!,
-            hp: toNumber(
-              row.hp,
-              "体力",
-              true,
-            )!,
-            attack:
-              toNumber(
-                row.attack,
-                "攻撃",
-                true,
-              )!,
-            defense:
-              toNumber(
-                row.defense,
-                "防御",
-                true,
-              )!,
-            critical:
-              toNumber(
-                row.critical,
-                "クリティカル",
-                true,
-              )!,
-          })),
-
-      ...(form.overboostEnabled
-        ? {
-            level100Overboost: {
-              totalPower:
-                toNumber(
-                  form.overboost
-                    .totalPower,
-                  "超過ブースト総合力",
-                  true,
-                )!,
-              hp: toNumber(
-                form.overboost.hp,
-                "超過ブースト体力",
-                true,
-              )!,
-              attack:
-                toNumber(
-                  form.overboost
-                    .attack,
-                  "超過ブースト攻撃",
-                  true,
-                )!,
-              defense:
-                toNumber(
-                  form.overboost
-                    .defense,
-                  "超過ブースト防御",
-                  true,
-                )!,
-              critical:
-                toNumber(
-                  form.overboost
-                    .critical,
-                  "超過ブーストクリティカル",
-                  true,
-                )!,
-            },
-          }
-        : {}),
+      levelStats: form.stats
+        .filter((row) => row.level.trim())
+        .map((row) => ({
+          level: toNumber(row.level, "レベル", true)!,
+          totalPower: toNumber(row.totalPower, "総合力", true)!,
+          hp: toNumber(row.hp, "体力", true)!,
+          attack: toNumber(row.attack, "攻撃", true)!,
+          defense: toNumber(row.defense, "防御", true)!,
+          critical: toNumber(row.critical, "クリティカル", true)!,
+        })),
+      level100Overboost: {
+        totalPower: toNumber(form.overboost.totalPower, "超過ブースト総合力", true)!,
+        hp: toNumber(form.overboost.hp, "超過ブースト体力", true)!,
+        attack: toNumber(form.overboost.attack, "超過ブースト攻撃", true)!,
+        defense: toNumber(form.overboost.defense, "超過ブースト防御", true)!,
+        critical: toNumber(form.overboost.critical, "超過ブーストクリティカル", true)!,
+      },
     };
   }
 
@@ -1999,6 +1979,24 @@ export default function AdminCharactersPage() {
               value.trim(),
             )
             .filter(Boolean),
+
+        changeFromSkillIndex:
+          skill.changeFromSkillIndex.trim() === ""
+            ? undefined
+            : toNumber(
+                skill.changeFromSkillIndex,
+                "変化元スキル",
+                true,
+              ),
+
+        changeCondition:
+          skill.changeCondition || undefined,
+
+        changeDuration:
+          toNumber(
+            skill.changeDuration,
+            "変化後効果時間",
+          ),
       }),
     );
   }
@@ -2038,13 +2036,13 @@ export default function AdminCharactersPage() {
           )
           .map((trait) => ({
             slot: trait.slot,
+            target: trait.target.trim() || "共通",
+            traitName: trait.traitName.trim(),
             /*
-             * 旧DBとの互換性のため空文字。
-             * 今後はeffectだけを表示する。
+             * 旧データとの互換性のためnameにも特性名を入れる。
              */
-            name: trait.slot,
-            effect:
-              trait.effect.trim(),
+            name: trait.traitName.trim() || trait.slot,
+            effect: trait.effect.trim(),
           }));
 
       const characterTypes =
