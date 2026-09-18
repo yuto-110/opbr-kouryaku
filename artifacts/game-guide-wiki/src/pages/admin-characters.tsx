@@ -303,6 +303,7 @@ type SkillForm = {
   imageUrl: string;
   skillType: SkillType;
   name: string;
+  skillInfo: string;
   description: string;
   effectTags: string[];
   statusAilments: string[];
@@ -386,6 +387,7 @@ function emptySkill(): SkillForm {
     skillType: "通常",
     name: "",
     description: "",
+    skillInfo: "",
     effectTags: [],
     statusAilments: [],
     duration: "",
@@ -472,6 +474,7 @@ function makeForm(character?: Character): FormState {
         imageUrl: skill.imageUrl ?? "",
         skillType: skill.skillType ?? "通常",
         name: skill.name ?? "",
+        skillInfo: skill.skillInfo ?? "",
         description: skill.description ?? "",
 
         effectTags:
@@ -1015,9 +1018,14 @@ function StatsEditor({
 function SkillsEditor({
   form,
   setForm,
+  handleSkillImageChange,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  handleSkillImageChange: (
+    index: number,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
 }) {
   function updateSkill(
     index: number,
@@ -1241,23 +1249,39 @@ function SkillsEditor({
 
                   <div className="mt-4">
                     <TextArea
-                      label="スキル情報（自由入力）"
-                      value={skill.description}
-                      onChange={(value) =>
-                        updateSkill(index, {
-                          description: value,
-                        })
-                      }
-                      rows={10}
-                      placeholder={`スキルの説明を自由に入力してください。
+  label="スキル情報"
+  value={skill.skillInfo}
+  onChange={(value) =>
+    updateSkill(index, {
+      skillInfo: value,
+    })
+  }
+  rows={6}
+  placeholder={`スキルの基本情報を自由に入力してください。
 
 例：
 前方に向かって斬撃を放ち、敵にダメージを与える。
 自分に攻撃力増加を付与する。
-敵をふっとばすことがある。
+敵をふっとばすことがある。`}
+/>
 
-※段階・威力・CTなどに分けず、Wikiに表示したい文章をそのまま入力できます。`}
-                    />
+<div className="mt-4">
+  <TextArea
+    label="詳細"
+    value={skill.description}
+    onChange={(value) =>
+      updateSkill(index, {
+        description: value,
+      })
+    }
+    rows={10}
+    placeholder={`スキルの詳細を自由に入力してください。
+
+例：
+スキル発動から攻撃が終了するまでの詳細な説明や、
+追加効果、発動条件などを入力します。`}
+/>
+</div>
                   </div>
                 </div>
               </div>
@@ -2362,6 +2386,10 @@ export default function AdminCharactersPage() {
         name:
           skill.name.trim(),
 
+        skillInfo:
+          skill.skillInfo.trim() ||
+          "スキル情報なし",
+
         description:
           skill.description.trim() ||
           "詳細説明なし",
@@ -3463,6 +3491,7 @@ export default function AdminCharactersPage() {
           <SkillsEditor
             form={form}
             setForm={setForm}
+            handleSkillImageChange={handleSkillImageChange}
           />
 
           <TraitsEditor
