@@ -5,50 +5,25 @@ import { requireAdmin, requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-type CharacterTagLevelInput = {
-  level?: unknown;
-  totalLevel?: unknown;
-  effect?: unknown;
-};
-
-function normalizeLevels(input: unknown) {
-  const source = Array.isArray(input) ? input : [];
+function normalizeLevels(levels: unknown) {
+  const source = Array.isArray(levels) ? levels : [];
 
   return Array.from({ length: 5 }, (_, index) => {
-    const levelNumber = index + 1;
+    const level = index + 1;
 
-    const raw = source.find(
-      (item): item is CharacterTagLevelInput =>
-        typeof item === "object" &&
-        item !== null &&
-        Number((item as CharacterTagLevelInput).level) === levelNumber,
+    const found = source.find(
+      (item: any) => Number(item?.level) === level,
     );
 
-    const totalLevel = Number(raw?.totalLevel ?? 0);
-
     return {
-      level: levelNumber,
-      totalLevel: Number.isFinite(totalLevel)
-        ? Math.max(0, Math.min(600, totalLevel))
-        : 0,
-      effect: String(raw?.effect ?? "").trim(),
+      level,
+      totalLevel: Math.max(
+        0,
+        Number(found?.totalLevel ?? 0) || 0,
+      ),
+      effect: String(found?.effect ?? "").trim(),
     };
   });
-}
-
-function cleanBody(body: any) {
-  return {
-    name: String(body?.name ?? "").trim(),
-
-    supportEffect: String(body?.supportEffect ?? "").trim(),
-
-    supportCategory:
-      String(body?.supportCategory ?? "その他").trim() || "その他",
-
-    levels: normalizeLevels(body?.levels),
-
-    active: body?.active !== false,
-  };
 }
 
 async function makeId() {
@@ -61,22 +36,41 @@ async function makeId() {
   }
 }
 
+function cleanBody(body: any) {
+  return {
+    name: String(body?.name ?? "").trim(),
+
+    supportEffect: String(
+      body?.supportEffect ?? "",
+    ).trim(),
+
+    supportCategory:
+      String(body?.supportCategory ?? "その他").trim() ||
+      "その他",
+
+    levels: normalizeLevels(body?.levels),
+
+    active: body?.active !== false,
+  };
+}
+
 /**
- * キャラクタータグ取得
- *
- * キャラクター編集画面・キャラクター詳細・サポート画面などから使用。
+ * 一般ユーザー向け
+ * 有効なキャラクタータグだけ取得
  */
 router.get("/character-tags", async (_req, res) => {
   try {
     await connectDB();
 
-    const tags = await CharacterTagMaster.find({ active: true })
+    const tags = await CharacterTagMaster.find({
+      active: true,
+    })
       .sort({ name: 1 })
       .lean();
 
     return res.json(tags);
   } catch (error) {
-    console.error("Character tags fetch error:", error);
+    console.error(error);
 
     return res.status(500).json({
       code: "INTERNAL_ERROR",
@@ -86,7 +80,8 @@ router.get("/character-tags", async (_req, res) => {
 });
 
 /**
- * 管理者用：全キャラクタータグ取得
+ * 管理者向け
+ * 全キャラクタータグ取得
  */
 router.get(
   "/admin/character-tags",
@@ -102,7 +97,7 @@ router.get(
 
       return res.json(tags);
     } catch (error) {
-      console.error("Admin character tags fetch error:", error);
+      console.error(error);
 
       return res.status(500).json({
         code: "INTERNAL_ERROR",
@@ -113,7 +108,7 @@ router.get(
 );
 
 /**
- * 管理者用：キャラクタータグ新規作成
+ * キャラクタータグ新規作成
  */
 router.post(
   "/admin/character-tags",
@@ -143,7 +138,11 @@ router.post(
         });
       }
 
-      if (await CharacterTagMaster.exists({ name: input.name })) {
+      if (
+        await CharacterTagMaster.exists({
+          name: input.name,
+        })
+      ) {
         return res.status(409).json({
           code: "DUPLICATE_NAME",
           message: "同じ名前のタグが既に存在します",
@@ -157,7 +156,7 @@ router.post(
 
       return res.status(201).json(created);
     } catch (error) {
-      console.error("Character tag create error:", error);
+      console.error(error);
 
       return res.status(500).json({
         code: "INTERNAL_ERROR",
@@ -168,7 +167,7 @@ router.post(
 );
 
 /**
- * 管理者用：キャラクタータグ更新
+ * キャラクタータグ更新
  */
 router.put(
   "/admin/character-tags/:id",
@@ -187,12 +186,17 @@ router.put(
 
       await connectDB();
 
-      const id = String(req.params.id ?? "").trim().toLowerCase();
+      const id = String(
+        req.params.id ?? "",
+      )
+        .trim()
+        .toLowerCase();
 
-      const duplicate = await CharacterTagMaster.findOne({
-        name: input.name,
-        id: { $ne: id },
-      }).select("_id");
+      const duplicate =
+        await CharacterTagMaster.findOne({
+          name: input.name,
+          id: { $ne: id },
+        }).select("_id");
 
       if (duplicate) {
         return res.status(409).json({
@@ -201,14 +205,15 @@ router.put(
         });
       }
 
-      const updated = await CharacterTagMaster.findOneAndUpdate(
-        { id },
-        input,
-        {
-          new: true,
-          runValidators: true,
-        },
-      ).lean();
+      const updated =
+        await CharacterTagMaster.findOneAndUpdate(
+          { id },
+          input,
+          {
+            new: true,
+            runValidators: true,
+          },
+        ).lean();
 
       if (!updated) {
         return res.status(404).json({
@@ -219,7 +224,7 @@ router.put(
 
       return res.json(updated);
     } catch (error) {
-      console.error("Character tag update error:", error);
+      console.error(error);
 
       return res.status(500).json({
         code: "INTERNAL_ERROR",
@@ -230,9 +235,7 @@ router.put(
 );
 
 /**
- * 管理者用：キャラクタータグ無効化
- *
- * 完全削除ではなく active=false にする。
+ * キャラクタータグ無効化
  */
 router.delete(
   "/admin/character-tags/:id",
@@ -242,13 +245,18 @@ router.delete(
     try {
       await connectDB();
 
-      const id = String(req.params.id ?? "").trim().toLowerCase();
+      const id = String(
+        req.params.id ?? "",
+      )
+        .trim()
+        .toLowerCase();
 
-      const updated = await CharacterTagMaster.findOneAndUpdate(
-        { id },
-        { active: false },
-        { new: true },
-      ).lean();
+      const updated =
+        await CharacterTagMaster.findOneAndUpdate(
+          { id },
+          { active: false },
+          { new: true },
+        ).lean();
 
       if (!updated) {
         return res.status(404).json({
@@ -259,7 +267,7 @@ router.delete(
 
       return res.json(updated);
     } catch (error) {
-      console.error("Character tag delete error:", error);
+      console.error(error);
 
       return res.status(500).json({
         code: "INTERNAL_ERROR",
