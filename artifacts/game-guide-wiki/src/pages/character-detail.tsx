@@ -57,6 +57,7 @@ type Character = {
     imageUrl?: string;
     skillType?: string;
     name: string;
+    skillInfo?: string;
     description: string;
     power?: number;
     cooldown?: number;
@@ -96,61 +97,199 @@ function SkillPresentation({ skills }: { skills: NonNullable<Character["skills"]
   );
 }
 
-function SkillGroup({ title, skills, targets }: { title: string; skills: NonNullable<Character["skills"]>; targets: string[] }) {
+function SkillGroup({
+  title,
+  skills,
+  targets,
+}: {
+  title: string;
+  skills: NonNullable<Character["skills"]>;
+  targets: string[];
+}) {
   const [target, setTarget] = useState(targets[0] ?? "共通");
-  const targetSkills = skills.filter((skill) => (skill.targetCharacter || "共通") === target).sort((a, b) => (a.variantOrder ?? 0) - (b.variantOrder ?? 0));
+  const targetSkills = skills
+    .filter((skill) => (skill.targetCharacter || "共通") === target)
+    .sort((a, b) => (a.variantOrder ?? 0) - (b.variantOrder ?? 0));
+
   const [variantIndex, setVariantIndex] = useState(0);
-  const active = targetSkills[Math.min(variantIndex, Math.max(0, targetSkills.length - 1))] ?? targetSkills[0];
-  useEffect(() => setVariantIndex(0), [target]);
+
+  useEffect(() => {
+    setVariantIndex(0);
+  }, [target]);
+
+  const active =
+    targetSkills[
+      Math.min(variantIndex, Math.max(0, targetSkills.length - 1))
+    ] ?? targetSkills[0];
+
   if (!active) return null;
-  const variants = targetSkills.map((skill, index) => ({ skill, index }));
-  const labelFor = (skill: NonNullable<Character["skills"]>[number]) => {
-    if (skill.skillType === "EVスキル") return `EVスキル${skill.variantOrder ?? 1}`;
-    if (skill.skillType === "コンボスキル") return "コンボスキル";
-    if (skill.skillType === "奪取中カウンタースキル") return "奪取中カウンター";
+
+  const variants = targetSkills.map((skill, index) => ({
+    skill,
+    index,
+  }));
+
+  const labelFor = (
+    skill: NonNullable<Character["skills"]>[number],
+  ) => {
+    if (skill.skillType === "EVスキル") {
+      return `EVスキル${skill.variantOrder ?? 1}`;
+    }
+
+    if (skill.skillType === "コンボスキル") {
+      return "コンボスキル";
+    }
+
+    if (skill.skillType === "奪取中カウンタースキル") {
+      return "奪取中カウンター";
+    }
+
     return title;
   };
+
   return (
     <section className="overflow-hidden rounded-md border border-card-border bg-card shadow-card">
-      {targets.length > 1 && <div className="border-b border-border bg-secondary/50 p-2"><div className="flex overflow-x-auto">{targets.map((item) => <button key={item} type="button" onClick={() => setTarget(item)} className={`min-w-32 border-b-2 px-4 py-2 text-sm font-black ${target === item ? "border-primary bg-primary text-white" : "border-transparent text-muted-foreground"}`}>{item}</button>)}</div></div>}
-      <div className="border-b-2 border-primary/40 px-5 py-4"><h3 className="text-xl font-black">{title}「{active.name}」</h3></div>
-      {variants.length > 1 && <div className="flex overflow-x-auto border-b border-border bg-background px-3 pt-2">{variants.map(({ skill, index }) => <button key={`${skill.name}-${index}`} type="button" onClick={() => setVariantIndex(index)} className={`rounded-t-md border px-4 py-2 text-xs font-black ${index === variantIndex ? "border-primary bg-primary text-white" : "border-border bg-card text-primary"}`}>{labelFor(skill)}</button>)}</div>}
+      {/* ダブルキャラなどの対象切り替え */}
+      {targets.length > 1 && (
+        <div className="border-b border-border bg-secondary/50 p-2">
+          <div className="flex overflow-x-auto">
+            {targets.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setTarget(item)}
+                className={`min-w-32 border-b-2 px-4 py-2 text-sm font-black ${
+                  target === item
+                    ? "border-primary bg-primary text-white"
+                    : "border-transparent text-muted-foreground"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* スキル名 */}
+      <div className="border-b-2 border-primary/40 px-5 py-4">
+        <h3 className="text-xl font-black">
+          {title}「{active.name}」
+        </h3>
+      </div>
+
+      {/* EVスキルなどの切り替え */}
+      {variants.length > 1 && (
+        <div className="flex overflow-x-auto border-b border-border bg-background px-3 pt-2">
+          {variants.map(({ skill, index }) => (
+            <button
+              key={`${skill.name}-${index}`}
+              type="button"
+              onClick={() => setVariantIndex(index)}
+              className={`rounded-t-md border px-4 py-2 text-xs font-black ${
+                index === variantIndex
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-card text-primary"
+              }`}
+            >
+              {labelFor(skill)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* スキル本体 */}
       <div className="p-4 sm:p-6">
         <div className="overflow-hidden rounded-md border border-border">
-          <div className="flex min-w-0 flex-row items-stretch">
-            <div className="flex w-[92px] shrink-0 items-center justify-center border-r border-border bg-muted p-2 sm:w-[120px] sm:p-3">{active.imageUrl ? <img src={active.imageUrl} alt="" className="h-16 w-16 object-contain sm:h-20 sm:w-20" /> : <div className="text-center text-[9px] font-bold text-muted-foreground">SKILL ICON</div>}</div>
-            <div className="min-w-0 flex-1 p-3 sm:p-4">
-              {(active.stages ?? []).length > 0 ? <div className="space-y-2">{active.stages?.map((stage, i) => <div key={i} className="border-b border-border pb-2 last:border-b-0">
-                <div className="text-sm font-bold leading-6">{stage.label || `${i + 1}段目`}</div>
-                {stage.power !== undefined && <div className="text-sm">スキル威力{stage.power}</div>}
-                {stage.cooldown !== undefined && <div className="text-sm">クールタイム{stage.cooldown}秒</div>}
-                {(stage.details ?? []).map((detail, detailIndex) => <div key={detailIndex} className="text-sm">{detail.label}：{detail.value}</div>)}
-                {stage.effect && <div className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{stage.effect}</div>}
-              </div>)}</div> : <div className="space-y-1 text-sm">{active.power !== undefined && <div>1段目：スキル威力{active.power}</div>}{active.cooldown !== undefined && <div>クールタイム{active.cooldown}秒</div>}</div>}
-              {active.effectTags?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{active.effectTags.map((tag) => <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">{tag}</span>)}</div> : null}
-              {active.statusAilments?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{active.statusAilments.map((tag) => <span key={tag} className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">{tag}</span>)}</div> : null}
+          {/* アイコン + スキル情報 */}
+          <div className="flex min-w-0 items-start gap-4 p-4 sm:p-5">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-border bg-muted sm:h-24 sm:w-24">
+              {active.imageUrl ? (
+                <img
+                  src={active.imageUrl}
+                  alt=""
+                  className="h-full w-full object-contain p-2"
+                />
+              ) : (
+                <span className="text-[9px] font-bold text-muted-foreground">
+                  SKILL ICON
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="whitespace-pre-line text-sm font-black leading-7 sm:text-base">
+                {active.skillInfo || "スキル情報未登録"}
+              </div>
+
+              {/* 効果タグ */}
+              {active.effectTags?.length ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {active.effectTags.map((tag) => (
+                    <span
+                      key={`effect-${tag}`}
+                      className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* 状態異常タグ */}
+              {active.statusAilments?.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {active.statusAilments.map((tag) => (
+                    <span
+                      key={`status-${tag}`}
+                      className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 詳細 */}
+          <div className="border-t border-border p-4 sm:p-5">
+            <div className="mb-2 text-xs font-black text-muted-foreground">
+              詳細
+            </div>
+
+            <div className="whitespace-pre-line text-sm leading-7">
+              {active.description || "詳細未登録"}
             </div>
           </div>
         </div>
-        <div className="mt-4 border-t border-border pt-4"><div className="mb-2 text-xs font-black text-muted-foreground">詳細</div><div className="whitespace-pre-line text-sm leading-7">{active.description}</div></div>
-        {(active.changeCondition || active.changeDuration !== undefined) && <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-xs leading-6"><b>スキル変化条件</b>{active.changeCondition ? `：${active.changeCondition}` : ""}{active.changeDuration !== undefined ? `（${active.changeDuration}秒）` : ""}</div>}
-        {active.extraEffects?.length ? <div className="mt-3 space-y-1 text-sm">{active.extraEffects.map((effect) => <div key={effect}>・{effect}</div>)}</div> : null}
+
+        {/* スキル変化条件・時間
+            ※ここは既存仕様を維持 */}
+        {(active.changeCondition ||
+          active.changeDuration !== undefined) && (
+          <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-xs leading-6">
+            <b>スキル変化条件</b>
+            {active.changeCondition
+              ? `：${active.changeCondition}`
+              : ""}
+            {active.changeDuration !== undefined
+              ? `（${active.changeDuration}秒）`
+              : ""}
+          </div>
+        )}
+
+        {/* その他の効果 */}
+        {active.extraEffects?.length ? (
+          <div className="mt-3 space-y-1 text-sm">
+            {active.extraEffects.map((effect) => (
+              <div key={effect}>・{effect}</div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   );
-}
-
-function TraitPresentation({ traits }: { traits: NonNullable<Character["traits"]> }) {
-  const targets = Array.from(new Set(traits.map((trait) => trait.target || "共通")));
-  const [target, setTarget] = useState(targets[0] ?? "共通");
-  const targetTraits = traits.filter((trait) => (trait.target || "共通") === target);
-  return <div className="space-y-4">
-    {targets.length > 1 && <div className="flex overflow-x-auto rounded-md border border-border">{targets.map((item) => <button key={item} type="button" onClick={() => setTarget(item)} className={`min-w-32 border-b-2 px-4 py-2 text-sm font-black ${target === item ? "border-primary bg-primary text-white" : "border-transparent bg-card text-muted-foreground"}`}>{item}</button>)}</div>}
-    {targetTraits.map((trait, index) => {
-      const effects = trait.effects?.length ? trait.effects : [trait.effect ?? ""].filter(Boolean);
-      return <div key={`${trait.traitName}-${index}`} className="overflow-hidden rounded-md border border-border bg-background"><div className="border-b border-border bg-secondary px-4 py-3 text-lg font-black">{trait.traitName || trait.name || trait.slot}</div><div>{effects.map((effect, effectIndex) => <div key={effectIndex} className="border-b border-border p-4 text-sm leading-7 last:border-b-0">{effect}</div>)}</div></div>;
-    })}
-  </div>;
 }
 
 function statRow(label: string, value: number) {
