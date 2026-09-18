@@ -65,7 +65,7 @@ const TIER_OPTIONS = [
  * キャラタグ
  *
  * 後でサポート編成・検索・絞り込みに使用する。
- * タグを増やしたい場合はここに追加するだけでOK。
+ * タグマスターが取得できない場合のフォールバック。
  */
 const CHARACTER_TAG_OPTIONS = [
   "攻撃力増加",
@@ -178,9 +178,6 @@ const TRAIT_SLOT_OPTIONS = [
 ] as const;
 
 type SkillType = (typeof SKILL_TYPE_OPTIONS)[number];
-type CharacterTag = (typeof CHARACTER_TAG_OPTIONS)[number];
-type SkillEffectTag = (typeof SKILL_EFFECT_TAG_OPTIONS)[number];
-type StatusAilment = (typeof STATUS_AILMENT_OPTIONS)[number];
 type TraitSlot = (typeof TRAIT_SLOT_OPTIONS)[number];
 
 /* ============================================================
@@ -234,12 +231,9 @@ type Character = {
     targetCharacter?: string;
     variantOrder?: number;
     imageUrl?: string;
-    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[]; details?: Array<{ label: string; value: string }> }>;
     skillType?: SkillType;
     name: string;
     description: string;
-    power?: number;
-    cooldown?: number;
     damageReductionIgnore?: boolean;
     defenseIgnore?: boolean;
     statusAilment?: string;
@@ -301,32 +295,15 @@ type StatRow = {
   critical: string;
 };
 
-type SkillStageDetailForm = {
-  label: string;
-  value: string;
-};
-
-type SkillStageForm = {
-  label: string;
-  power: string;
-  cooldown: string;
-  effect: string;
-  effects: string[];
-  details: SkillStageDetailForm[];
-};
-
 type SkillForm = {
   imageFile: File | null;
   skillSlot: "スキル1" | "スキル2" | "その他";
   targetCharacter: string;
   variantOrder: string;
   imageUrl: string;
-  stages: SkillStageForm[];
   skillType: SkillType;
   name: string;
   description: string;
-  power: string;
-  cooldown: string;
   effectTags: string[];
   statusAilments: string[];
   duration: string;
@@ -406,12 +383,9 @@ function emptySkill(): SkillForm {
     targetCharacter: "共通",
     variantOrder: "0",
     imageUrl: "",
-    stages: [{ label: "1段目", power: "", cooldown: "", effect: "", effects: [], details: [] }],
     skillType: "通常",
     name: "",
     description: "",
-    power: "",
-    cooldown: "",
     effectTags: [],
     statusAilments: [],
     duration: "",
@@ -496,25 +470,9 @@ function makeForm(character?: Character): FormState {
         targetCharacter: skill.targetCharacter ?? "共通",
         variantOrder: String(skill.variantOrder ?? 0),
         imageUrl: skill.imageUrl ?? "",
-        stages: (skill.stages ?? []).length > 0
-          ? (skill.stages ?? []).map((stage) => ({
-              label: stage.label ?? "",
-              power: stage.power === undefined ? "" : String(stage.power),
-              cooldown: stage.cooldown === undefined ? "" : String(stage.cooldown),
-              effect: stage.effect ?? "",
-              effects: stage.effects ?? [],
-              details: stage.details ?? [],
-            }))
-          : [{ label: "1段目", power: skill.power === undefined ? "" : String(skill.power), cooldown: skill.cooldown === undefined ? "" : String(skill.cooldown), effect: "", effects: [], details: [] }],
         skillType: skill.skillType ?? "通常",
         name: skill.name ?? "",
         description: skill.description ?? "",
-        power:
-          skill.power === undefined ? "" : String(skill.power),
-        cooldown:
-          skill.cooldown === undefined
-            ? ""
-            : String(skill.cooldown),
 
         effectTags:
           skill.effectTags ??
@@ -539,11 +497,14 @@ function makeForm(character?: Character): FormState {
             : String(skill.duration),
 
         extraEffects: skill.extraEffects ?? [],
+
         changeFromSkillIndex:
           skill.changeFromSkillIndex === undefined
             ? ""
             : String(skill.changeFromSkillIndex),
+
         changeCondition: skill.changeCondition ?? "",
+
         changeDuration:
           skill.changeDuration === undefined
             ? ""
@@ -555,7 +516,9 @@ function makeForm(character?: Character): FormState {
         slot: trait.slot ?? "キャラ特性",
         target: trait.target ?? "共通",
         traitName: trait.traitName ?? trait.name ?? "",
-        effects: trait.effects?.length ? trait.effects : [trait.effect ?? ""],
+        effects: trait.effects?.length
+          ? trait.effects
+          : [trait.effect ?? ""],
       })) ?? [],
 
     characterTypes:
@@ -713,32 +676,74 @@ function TagPicker({
     <div className="relative">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-black">{label}</span>
-        <span className="text-[10px] text-muted-foreground">{selected.length}個選択中</span>
+        <span className="text-[10px] text-muted-foreground">
+          {selected.length}個選択中
+        </span>
       </div>
+
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex min-h-11 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-left text-sm hover:border-primary"
       >
         <span className="flex min-w-0 flex-wrap gap-1.5">
-          {selected.length ? selected.map((value) => (
-            <span key={value} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{value}</span>
-          )) : <span className="text-muted-foreground">クリックして選択</span>}
+          {selected.length ? (
+            selected.map((value) => (
+              <span
+                key={value}
+                className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"
+              >
+                {value}
+              </span>
+            ))
+          ) : (
+            <span className="text-muted-foreground">
+              クリックして選択
+            </span>
+          )}
         </span>
-        <span className="ml-2 shrink-0 text-muted-foreground">{open ? "▲" : "▼"}</span>
+
+        <span className="ml-2 shrink-0 text-muted-foreground">
+          {open ? "▲" : "▼"}
+        </span>
       </button>
+
       {open && (
         <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border bg-card p-2 shadow-xl">
           {options.map((option) => {
             const active = selected.includes(option);
+
             return (
-              <label key={option} className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs hover:bg-secondary">
-                <input type="checkbox" checked={active} onChange={() => toggle(option)} />
-                <span className={active ? "font-black text-primary" : ""}>{option}</span>
+              <label
+                key={option}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs hover:bg-secondary"
+              >
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggle(option)}
+                />
+
+                <span
+                  className={
+                    active
+                      ? "font-black text-primary"
+                      : ""
+                  }
+                >
+                  {option}
+                </span>
               </label>
             );
           })}
-          <button type="button" onClick={() => setOpen(false)} className="mt-1 w-full rounded border border-border px-2 py-2 text-xs font-bold">閉じる</button>
+
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="mt-1 w-full rounded border border-border px-2 py-2 text-xs font-bold"
+          >
+            閉じる
+          </button>
         </div>
       )}
     </div>
@@ -962,34 +967,41 @@ function StatsEditor({
       </div>
 
       <div className="mt-5 border-t border-border pt-5">
-        <div className="text-xs font-black">Lv100超過ブーストのステータス <span className="text-red-600">*</span></div>
-        <p className="mt-1 text-[10px] text-muted-foreground">Lv100超過ブースト最大時の5項目。通常Lvの入力は任意です。</p>
+        <div className="text-xs font-black">
+          Lv100超過ブーストのステータス{" "}
+          <span className="text-red-600">*</span>
+        </div>
+
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Lv100超過ブースト最大時の5項目。通常Lvの入力は任意です。
+        </p>
+
         <div className="mt-4 grid gap-3 md:grid-cols-5">
-            {(
-              [
-                ["totalPower", "総合力"],
-                ["hp", "体力"],
-                ["attack", "攻撃"],
-                ["defense", "防御"],
-                ["critical", "クリティカル"],
-              ] as const
-            ).map(([key, label]) => (
-              <Field
-                key={key}
-                label={label}
-                type="number"
-                value={form.overboost[key]}
-                onChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    overboost: {
-                      ...current.overboost,
-                      [key]: value,
-                    },
-                  }))
-                }
-              />
-            ))}
+          {(
+            [
+              ["totalPower", "総合力"],
+              ["hp", "体力"],
+              ["attack", "攻撃"],
+              ["defense", "防御"],
+              ["critical", "クリティカル"],
+            ] as const
+          ).map(([key, label]) => (
+            <Field
+              key={key}
+              label={label}
+              type="number"
+              value={form.overboost[key]}
+              onChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  overboost: {
+                    ...current.overboost,
+                    [key]: value,
+                  },
+                }))
+              }
+            />
+          ))}
         </div>
       </div>
     </section>
@@ -1007,170 +1019,433 @@ function SkillsEditor({
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
 }) {
-  function updateSkill(index: number, patch: Partial<SkillForm>) {
+  function updateSkill(
+    index: number,
+    patch: Partial<SkillForm>,
+  ) {
     setForm((current) => ({
       ...current,
-      skills: current.skills.map((skill, i) => i === index ? { ...skill, ...patch } : skill),
+      skills: current.skills.map(
+        (skill, i) =>
+          i === index
+            ? { ...skill, ...patch }
+            : skill,
+      ),
     }));
   }
 
   function addSkill() {
-    setForm((current) => ({ ...current, skills: [...current.skills, emptySkill()] }));
+    setForm((current) => ({
+      ...current,
+      skills: [
+        ...current.skills,
+        emptySkill(),
+      ],
+    }));
   }
 
   function removeSkill(index: number) {
-    setForm((current) => ({ ...current, skills: current.skills.filter((_, i) => i !== index) }));
-  }
-
-  function updateStage(skillIndex: number, stageIndex: number, patch: Partial<SkillStageForm>) {
-    const stages = form.skills[skillIndex]?.stages ?? [];
-    updateSkill(skillIndex, { stages: stages.map((stage, i) => i === stageIndex ? { ...stage, ...patch } : stage) });
-  }
-
-  function addStage(skillIndex: number) {
-    const stages = form.skills[skillIndex]?.stages ?? [];
-    updateSkill(skillIndex, { stages: [...stages, { label: "", power: "", cooldown: "", effect: "", effects: [], details: [] }] });
-  }
-
-  function removeStage(skillIndex: number, stageIndex: number) {
-    const stages = form.skills[skillIndex]?.stages ?? [];
-    updateSkill(skillIndex, { stages: stages.filter((_, i) => i !== stageIndex) });
-  }
-
-  function updateStageDetail(skillIndex: number, stageIndex: number, detailIndex: number, patch: Partial<SkillStageDetailForm>) {
-    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
-    if (!stage) return;
-    updateStage(skillIndex, stageIndex, {
-      details: (stage.details ?? []).map((detail, i) => i === detailIndex ? { ...detail, ...patch } : detail),
-    });
-  }
-
-  function addStageDetail(skillIndex: number, stageIndex: number) {
-    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
-    if (!stage) return;
-    updateStage(skillIndex, stageIndex, { details: [...(stage.details ?? []), { label: "", value: "" }] });
-  }
-
-  function removeStageDetail(skillIndex: number, stageIndex: number, detailIndex: number) {
-    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
-    if (!stage) return;
-    updateStage(skillIndex, stageIndex, { details: (stage.details ?? []).filter((_, i) => i !== detailIndex) });
+    setForm((current) => ({
+      ...current,
+      skills: current.skills.filter(
+        (_, i) => i !== index,
+      ),
+    }));
   }
 
   function addExtraEffect(index: number) {
-    updateSkill(index, { extraEffects: [...(form.skills[index]?.extraEffects ?? []), ""] });
+    updateSkill(index, {
+      extraEffects: [
+        ...(form.skills[index]?.extraEffects ?? []),
+        "",
+      ],
+    });
   }
 
   return (
     <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-black">スキル</h2>
-          <p className="mt-1 text-[11px] text-muted-foreground">スクショのWiki構造に合わせ、スキル1/2・EV進化・ダブルキャラ・コンボ変化を登録できます。</p>
+          <h2 className="text-base font-black">
+            スキル
+          </h2>
+
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            スキル1/2・EVスキル・ダブルキャラ・スタイルチェンジ・コンボ変化などを登録できます。
+          </p>
         </div>
-        <button type="button" onClick={addSkill} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"><Plus size={14} />スキル追加</button>
+
+        <button
+          type="button"
+          onClick={addSkill}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"
+        >
+          <Plus size={14} />
+          スキル追加
+        </button>
       </div>
 
       <div className="space-y-5">
         {form.skills.map((skill, index) => (
-          <div key={index} className="rounded-lg border border-border bg-background p-4 shadow-sm">
+          <div
+            key={index}
+            className="rounded-lg border border-border bg-background p-4 shadow-sm"
+          >
             <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
               <div>
-                <h3 className="text-sm font-black">スキル {index + 1}</h3>
-                <p className="mt-1 text-[10px] text-muted-foreground">進化・変化するスキルは同じスキル番号で variantOrder を増やします。</p>
+                <h3 className="text-sm font-black">
+                  スキル {index + 1}
+                </h3>
+
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  EVスキルなどは同じスキル枠で進化順を設定します。
+                </p>
               </div>
-              <button type="button" onClick={() => removeSkill(index)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[10px] font-black text-muted-foreground hover:text-red-600"><Trash2 size={13} />削除</button>
+
+              <button
+                type="button"
+                onClick={() => removeSkill(index)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[10px] font-black text-muted-foreground hover:text-red-600"
+              >
+                <Trash2 size={13} />
+                削除
+              </button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">
-              <SelectField label="スキル枠" value={skill.skillSlot} onChange={(value) => updateSkill(index, { skillSlot: value as SkillForm["skillSlot"] })} options={["スキル1", "スキル2", "その他"]} />
-              <SelectField label="スキルタイプ" value={skill.skillType} onChange={(value) => updateSkill(index, { skillType: value as SkillType })} options={SKILL_TYPE_OPTIONS} />
-              <Field label="対象キャラ" value={skill.targetCharacter} onChange={(value) => updateSkill(index, { targetCharacter: value })} placeholder="共通 / ルフィ / ロジャー" />
-              <Field label="進化順" type="number" value={skill.variantOrder} onChange={(value) => updateSkill(index, { variantOrder: value })} placeholder="0=通常、1=EV1、2=EV2" />
+              <SelectField
+                label="スキル枠"
+                value={skill.skillSlot}
+                onChange={(value) =>
+                  updateSkill(index, {
+                    skillSlot:
+                      value as SkillForm["skillSlot"],
+                  })
+                }
+                options={[
+                  "スキル1",
+                  "スキル2",
+                  "その他",
+                ]}
+              />
+
+              <SelectField
+                label="スキルタイプ"
+                value={skill.skillType}
+                onChange={(value) =>
+                  updateSkill(index, {
+                    skillType:
+                      value as SkillType,
+                  })
+                }
+                options={SKILL_TYPE_OPTIONS}
+              />
+
+              <Field
+                label="対象キャラ"
+                value={skill.targetCharacter}
+                onChange={(value) =>
+                  updateSkill(index, {
+                    targetCharacter: value,
+                  })
+                }
+                placeholder="共通 / ルフィ / ロジャー"
+              />
+
+              <Field
+                label="進化順"
+                type="number"
+                value={skill.variantOrder}
+                onChange={(value) =>
+                  updateSkill(index, {
+                    variantOrder: value,
+                  })
+                }
+                placeholder="0=通常、1=EV1、2=EV2"
+              />
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <Field label="スキル名" value={skill.name} onChange={(value) => updateSkill(index, { name: value })} placeholder="例：三刀流黒縄大龍巻" />
-              <div>
-                <label className="block text-xs font-black">スキルアイコン</label>
-                <div className="mt-2 flex items-center gap-3 rounded-md border border-dashed border-border bg-card p-3">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-                    {skill.imageUrl ? (
-                      <img src={skill.imageUrl} alt="" className="h-full w-full object-contain" />
-                    ) : (
-                      <div className="grid h-full place-items-center text-[9px] font-bold text-muted-foreground">ICON</div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => handleSkillImageChange(index, event)} className="w-full text-[10px]" />
-                    {skill.imageFile && <p className="mt-1 truncate text-[10px] text-muted-foreground">選択中: {skill.imageFile.name}</p>}
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <Field label="既存のスキル画像URL" value={skill.imageUrl} onChange={(value) => updateSkill(index, { imageUrl: value })} placeholder="既存URLを使う場合のみ" />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-md border border-border bg-card p-3">
-              <div className="mb-3 flex items-center justify-between">
+            {/* ==================================================
+             * Skill icon + free information
+             * ================================================== */}
+            <div className="mt-5 rounded-md border border-border bg-card p-4">
+              <div className="grid gap-4 md:grid-cols-[120px_minmax(0,1fr)]">
+                {/* Icon */}
                 <div>
-                  <h4 className="text-xs font-black">段階ごとの情報</h4>
-                  <p className="mt-1 text-[10px] text-muted-foreground">「1段目：スキル威力」「クールタイム」などを分けて登録できます。</p>
-                </div>
-                <button type="button" onClick={() => addStage(index)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold hover:border-primary hover:text-primary"><Plus size={12} />段階追加</button>
-              </div>
-              <div className="space-y-3">
-                {(skill.stages ?? []).map((stage, stageIndex) => (
-                  <div key={stageIndex} className="rounded border border-border bg-background p-3">
-                    <div className="grid gap-3 md:grid-cols-4">
-                      <Field label="段階名（自由入力）" value={stage.label} onChange={(value) => updateStage(index, stageIndex, { label: value })} placeholder="例：1段目 / 1段目（最大3連続ヒット） / 自由入力" />
-                      <Field label="威力" type="number" value={stage.power} onChange={(value) => updateStage(index, stageIndex, { power: value })} />
-                      <Field label="CT" type="number" value={stage.cooldown} onChange={(value) => updateStage(index, stageIndex, { cooldown: value })} />
-                      <div className="flex items-end"><button type="button" onClick={() => removeStage(index, stageIndex)} className="w-full rounded border border-border px-2 py-2 text-xs text-muted-foreground hover:text-red-600"><Trash2 size={13} className="mx-auto" /></button></div>
-                    </div>
-                    <div className="mt-3"><TextArea label="段階の説明" value={stage.effect} onChange={(value) => updateStage(index, stageIndex, { effect: value })} rows={3} placeholder="この段階だけの説明" /></div>
-                    <div className="mt-4 rounded-md border border-border bg-card p-3">
-                      <div className="mb-3 flex items-center justify-between"><span className="text-xs font-black">段階ごとの自由入力情報</span><button type="button" onClick={() => addStageDetail(index, stageIndex)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold"><Plus size={12} />情報追加</button></div>
-                      <p className="mb-3 text-[10px] leading-5 text-muted-foreground">威力・CT以外も「項目名」と「内容」を自由に追加できます。例：最大ヒット数 / ダメージ減少無視 / 発動時効果 など。</p>
-                      <div className="space-y-2">{(stage.details ?? []).map((detail, detailIndex) => (
-                        <div key={detailIndex} className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)_auto]">
-                          <Field label="項目名" value={detail.label} onChange={(value) => updateStageDetail(index, stageIndex, detailIndex, { label: value })} placeholder="最大ヒット数" />
-                          <TextArea label="内容" value={detail.value} onChange={(value) => updateStageDetail(index, stageIndex, detailIndex, { value })} rows={2} placeholder="3回" />
-                          <button type="button" onClick={() => removeStageDetail(index, stageIndex, detailIndex)} className="self-end rounded border border-border px-3 py-2 text-muted-foreground hover:text-red-600"><X size={14} /></button>
+                  <label className="block text-xs font-black">
+                    スキルアイコン
+                  </label>
+
+                  <div className="mt-2 flex justify-center">
+                    <div className="h-24 w-24 overflow-hidden rounded-md border border-border bg-muted">
+                      {skill.imageUrl ? (
+                        <img
+                          src={skill.imageUrl}
+                          alt=""
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="grid h-full place-items-center text-[10px] font-bold text-muted-foreground">
+                          ICON
                         </div>
-                      ))}</div>
+                      )}
                     </div>
-                    <div className="mt-3"><TagPicker label="段階の効果タグ" options={SKILL_EFFECT_TAG_OPTIONS} selected={stage.effects} onChange={(values) => updateStage(index, stageIndex, { effects: values })} /></div>
                   </div>
-                ))}
+
+                  <div className="mt-3">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      onChange={(event) =>
+                        handleSkillImageChange(
+                          index,
+                          event,
+                        )
+                      }
+                      className="w-full text-[10px]"
+                    />
+                  </div>
+
+                  {skill.imageFile && (
+                    <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                      選択中: {skill.imageFile.name}
+                    </p>
+                  )}
+
+                  <div className="mt-3">
+                    <Field
+                      label="画像URL"
+                      value={skill.imageUrl}
+                      onChange={(value) =>
+                        updateSkill(index, {
+                          imageUrl: value,
+                        })
+                      }
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                {/* Skill information */}
+                <div className="min-w-0">
+                  <Field
+                    label="スキル名"
+                    value={skill.name}
+                    onChange={(value) =>
+                      updateSkill(index, {
+                        name: value,
+                      })
+                    }
+                    placeholder="例：三刀流黒縄大龍巻"
+                  />
+
+                  <div className="mt-4">
+                    <TextArea
+                      label="スキル情報（自由入力）"
+                      value={skill.description}
+                      onChange={(value) =>
+                        updateSkill(index, {
+                          description: value,
+                        })
+                      }
+                      rows={10}
+                      placeholder={`スキルの説明を自由に入力してください。
+
+例：
+前方に向かって斬撃を放ち、敵にダメージを与える。
+自分に攻撃力増加を付与する。
+敵をふっとばすことがある。
+
+※段階・威力・CTなどに分けず、Wikiに表示したい文章をそのまま入力できます。`}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4"><TextArea label="スキル全体の説明" value={skill.description} onChange={(value) => updateSkill(index, { description: value })} rows={5} placeholder="スクショのようなスキル説明を入力" /></div>
-
+            {/* ==================================================
+             * Effect tags
+             * ================================================== */}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <TagPicker label="スキル効果タグ（複数選択）" options={SKILL_EFFECT_TAG_OPTIONS} selected={skill.effectTags} onChange={(values) => updateSkill(index, { effectTags: values })} />
-              <TagPicker label="状態異常タグ（複数選択）" options={STATUS_AILMENT_OPTIONS} selected={skill.statusAilments} onChange={(values) => updateSkill(index, { statusAilments: values })} />
+              <TagPicker
+                label="スキル効果タグ（複数選択）"
+                options={SKILL_EFFECT_TAG_OPTIONS}
+                selected={skill.effectTags}
+                onChange={(values) =>
+                  updateSkill(index, {
+                    effectTags: values,
+                  })
+                }
+              />
+
+              <TagPicker
+                label="状態異常タグ（複数選択）"
+                options={STATUS_AILMENT_OPTIONS}
+                selected={skill.statusAilments}
+                onChange={(values) =>
+                  updateSkill(index, {
+                    statusAilments: values,
+                  })
+                }
+              />
             </div>
 
-            {(skill.skillType === "EVスキル" || skill.skillType === "コンボスキル" || skill.skillType === "奪取中カウンタースキル" || skill.variantOrder !== "0") && (
+            {/* ==================================================
+             * Skill change settings
+             * ================================================== */}
+            {(skill.skillType === "EVスキル" ||
+              skill.skillType === "コンボスキル" ||
+              skill.skillType === "奪取中カウンタースキル" ||
+              skill.variantOrder !== "0") && (
               <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
-                <h4 className="text-xs font-black text-primary">スキル変化・進化設定</h4>
+                <h4 className="text-xs font-black text-primary">
+                  スキル変化・進化設定
+                </h4>
+
                 <div className="mt-3 grid gap-4 md:grid-cols-3">
-                  <SelectField label="変化元スキル" value={skill.changeFromSkillIndex} onChange={(value) => updateSkill(index, { changeFromSkillIndex: value })} options={["", ...form.skills.map((_, i) => String(i))]} />
-                  <SelectField label="変化条件" value={skill.changeCondition} onChange={(value) => updateSkill(index, { changeCondition: value as SkillForm["changeCondition"] })} options={["", "一定時間", "コンボ成立時", "奪取中", "条件達成時"]} />
-                  <Field label="変化時間（秒）" type="number" value={skill.changeDuration} onChange={(value) => updateSkill(index, { changeDuration: value })} />
+                  <SelectField
+                    label="変化元スキル"
+                    value={
+                      skill.changeFromSkillIndex
+                    }
+                    onChange={(value) =>
+                      updateSkill(index, {
+                        changeFromSkillIndex:
+                          value,
+                      })
+                    }
+                    options={[
+                      "",
+                      ...form.skills.map(
+                        (_, i) =>
+                          String(i),
+                      ),
+                    ]}
+                  />
+
+                  <SelectField
+                    label="変化条件"
+                    value={
+                      skill.changeCondition
+                    }
+                    onChange={(value) =>
+                      updateSkill(index, {
+                        changeCondition:
+                          value as SkillForm["changeCondition"],
+                      })
+                    }
+                    options={[
+                      "",
+                      "一定時間",
+                      "コンボ成立時",
+                      "奪取中",
+                      "条件達成時",
+                    ]}
+                  />
+
+                  <Field
+                    label="変化時間（秒）"
+                    type="number"
+                    value={
+                      skill.changeDuration
+                    }
+                    onChange={(value) =>
+                      updateSkill(index, {
+                        changeDuration:
+                          value,
+                      })
+                    }
+                  />
                 </div>
-                <p className="mt-3 text-[10px] leading-5 text-muted-foreground">EVスキル1→EVスキル2のような連続進化は「同じスキル枠」「同じ対象キャラ」「進化順 1→2」で登録します。</p>
+
+                <p className="mt-3 text-[10px] leading-5 text-muted-foreground">
+                  EVスキル1→EVスキル2のような連続進化は「同じスキル枠」「同じ対象キャラ」「進化順 1→2」で登録します。
+                </p>
               </div>
             )}
 
+            {/* ==================================================
+             * Extra effects
+             * ================================================== */}
             <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black">その他の効果</span><button type="button" onClick={() => addExtraEffect(index)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-black hover:border-primary hover:text-primary"><Plus size={12} />追加</button></div>
-              <div className="space-y-2">{skill.extraEffects.map((effect, effectIndex) => (
-                <div key={effectIndex} className="flex gap-2"><input value={effect} onChange={(event) => updateSkill(index, { extraEffects: skill.extraEffects.map((item, i) => i === effectIndex ? event.target.value : item) })} className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary" /><button type="button" onClick={() => updateSkill(index, { extraEffects: skill.extraEffects.filter((_, i) => i !== effectIndex) })} className="rounded-md border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
-              ))}</div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-black">
+                  その他の効果
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    addExtraEffect(index)
+                  }
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-black hover:border-primary hover:text-primary"
+                >
+                  <Plus size={12} />
+                  追加
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {skill.extraEffects.map(
+                  (
+                    effect,
+                    effectIndex,
+                  ) => (
+                    <div
+                      key={effectIndex}
+                      className="flex gap-2"
+                    >
+                      <input
+                        value={effect}
+                        onChange={(event) =>
+                          updateSkill(
+                            index,
+                            {
+                              extraEffects:
+                                skill.extraEffects.map(
+                                  (
+                                    item,
+                                    i,
+                                  ) =>
+                                    i ===
+                                    effectIndex
+                                      ? event
+                                          .target
+                                          .value
+                                      : item,
+                                ),
+                            },
+                          )
+                        }
+                        className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSkill(
+                            index,
+                            {
+                              extraEffects:
+                                skill.extraEffects.filter(
+                                  (
+                                    _,
+                                    i,
+                                  ) =>
+                                    i !==
+                                    effectIndex,
+                                ),
+                            },
+                          )
+                        }
+                        className="rounded-md border border-border px-3 text-muted-foreground hover:text-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -1190,43 +1465,240 @@ function TraitsEditor({
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
 }) {
-  function updateTrait(index: number, patch: Partial<TraitForm>) {
-    setForm((current) => ({ ...current, traits: current.traits.map((trait, i) => i === index ? { ...trait, ...patch } : trait) }));
+  function updateTrait(
+    index: number,
+    patch: Partial<TraitForm>,
+  ) {
+    setForm((current) => ({
+      ...current,
+      traits: current.traits.map(
+        (trait, i) =>
+          i === index
+            ? { ...trait, ...patch }
+            : trait,
+      ),
+    }));
   }
+
   function addEffect(index: number) {
-    const effects = form.traits[index]?.effects ?? [];
-    updateTrait(index, { effects: [...effects, ""] });
+    const effects =
+      form.traits[index]?.effects ?? [];
+
+    updateTrait(index, {
+      effects: [...effects, ""],
+    });
   }
-  function updateEffect(index: number, effectIndex: number, value: string) {
-    const effects = form.traits[index]?.effects ?? [];
-    updateTrait(index, { effects: effects.map((item, i) => i === effectIndex ? value : item) });
+
+  function updateEffect(
+    index: number,
+    effectIndex: number,
+    value: string,
+  ) {
+    const effects =
+      form.traits[index]?.effects ?? [];
+
+    updateTrait(index, {
+      effects: effects.map(
+        (item, i) =>
+          i === effectIndex
+            ? value
+            : item,
+      ),
+    });
   }
-  function removeEffect(index: number, effectIndex: number) {
-    const effects = form.traits[index]?.effects ?? [];
-    updateTrait(index, { effects: effects.filter((_, i) => i !== effectIndex) });
+
+  function removeEffect(
+    index: number,
+    effectIndex: number,
+  ) {
+    const effects =
+      form.traits[index]?.effects ?? [];
+
+    updateTrait(index, {
+      effects: effects.filter(
+        (_, i) =>
+          i !== effectIndex,
+      ),
+    });
   }
+
   return (
     <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
       <div className="mb-5 flex items-center justify-between">
-        <div><h2 className="text-base font-black">特性</h2><p className="mt-1 text-[11px] text-muted-foreground">スクショの見出し構造をそのまま登録。ダブルキャラは対象キャラごとに何個でも追加できます。</p></div>
-        <button type="button" onClick={() => setForm((current) => ({ ...current, traits: [...current.traits, emptyTrait()] }))} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"><Plus size={14} />特性追加</button>
+        <div>
+          <h2 className="text-base font-black">
+            特性
+          </h2>
+
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            スクショの見出し構造をそのまま登録。ダブルキャラは対象キャラごとに何個でも追加できます。
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setForm((current) => ({
+              ...current,
+              traits: [
+                ...current.traits,
+                emptyTrait(),
+              ],
+            }))
+          }
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"
+        >
+          <Plus size={14} />
+          特性追加
+        </button>
       </div>
+
       <div className="space-y-4">
-        {form.traits.map((trait, index) => (
-          <div key={index} className="rounded-lg border border-border bg-background p-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <SelectField label="特性枠" value={trait.slot} onChange={(value) => updateTrait(index, { slot: value as TraitSlot })} options={TRAIT_SLOT_OPTIONS} />
-              <Field label="対象キャラ" value={trait.target} onChange={(value) => updateTrait(index, { target: value })} placeholder="共通 / キャラA / キャラB" />
-              <div className="flex gap-2"><div className="min-w-0 flex-1"><Field label="特性名" value={trait.traitName} onChange={(value) => updateTrait(index, { traitName: value })} placeholder="キャラ特性2 / アタッカー特性" /></div><button type="button" onClick={() => setForm((current) => ({ ...current, traits: current.traits.filter((_, i) => i !== index) }))} className="mt-7 rounded border border-border px-3 text-muted-foreground hover:text-red-600"><Trash2 size={14} /></button></div>
+        {form.traits.map(
+          (trait, index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-border bg-background p-4"
+            >
+              <div className="grid gap-3 md:grid-cols-3">
+                <SelectField
+                  label="特性枠"
+                  value={trait.slot}
+                  onChange={(value) =>
+                    updateTrait(index, {
+                      slot:
+                        value as TraitSlot,
+                    })
+                  }
+                  options={
+                    TRAIT_SLOT_OPTIONS
+                  }
+                />
+
+                <Field
+                  label="対象キャラ"
+                  value={trait.target}
+                  onChange={(value) =>
+                    updateTrait(index, {
+                      target: value,
+                    })
+                  }
+                  placeholder="共通 / キャラA / キャラB"
+                />
+
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Field
+                      label="特性名"
+                      value={
+                        trait.traitName
+                      }
+                      onChange={(value) =>
+                        updateTrait(
+                          index,
+                          {
+                            traitName:
+                              value,
+                          },
+                        )
+                      }
+                      placeholder="キャラ特性2 / アタッカー特性"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm(
+                        (current) => ({
+                          ...current,
+                          traits:
+                            current.traits.filter(
+                              (
+                                _,
+                                i,
+                              ) =>
+                                i !==
+                                index,
+                            ),
+                        }),
+                      )
+                    }
+                    className="mt-7 rounded border border-border px-3 text-muted-foreground hover:text-red-600"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-md border border-border bg-card p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-black">
+                    効果
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      addEffect(index)
+                    }
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold hover:border-primary hover:text-primary"
+                  >
+                    <Plus size={12} />
+                    効果追加
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {trait.effects.map(
+                    (
+                      effect,
+                      effectIndex,
+                    ) => (
+                      <div
+                        key={
+                          effectIndex
+                        }
+                        className="flex gap-2"
+                      >
+                        <TextArea
+                          label={`効果${
+                            effectIndex + 1
+                          }`}
+                          value={effect}
+                          onChange={(
+                            value,
+                          ) =>
+                            updateEffect(
+                              index,
+                              effectIndex,
+                              value,
+                            )
+                          }
+                          rows={3}
+                          placeholder="例：敵を無視してお宝を奪取できる"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeEffect(
+                              index,
+                              effectIndex,
+                            )
+                          }
+                          className="mt-7 h-10 rounded border border-border px-3 text-muted-foreground hover:text-red-600"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="mt-4 rounded-md border border-border bg-card p-3">
-              <div className="mb-3 flex items-center justify-between"><span className="text-xs font-black">効果</span><button type="button" onClick={() => addEffect(index)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold hover:border-primary hover:text-primary"><Plus size={12} />効果追加</button></div>
-              <div className="space-y-2">{trait.effects.map((effect, effectIndex) => (
-                <div key={effectIndex} className="flex gap-2"><TextArea label={`効果${effectIndex + 1}`} value={effect} onChange={(value) => updateEffect(index, effectIndex, value)} rows={3} placeholder="例：敵を無視してお宝を奪取できる" /><button type="button" onClick={() => removeEffect(index, effectIndex)} className="mt-7 h-10 rounded border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
-              ))}</div>
-            </div>
-          </div>
-        ))}
+          ),
+        )}
       </div>
     </section>
   );
@@ -1289,11 +1761,16 @@ function CharacterTypesEditor({
                     ...current,
                     characterTypes:
                       current.characterTypes.map(
-                        (item, itemIndex) =>
-                          itemIndex === index
+                        (
+                          item,
+                          itemIndex,
+                        ) =>
+                          itemIndex ===
+                          index
                             ? {
                                 ...item,
-                                typeId: value,
+                                typeId:
+                                  value,
                               }
                             : item,
                       ),
@@ -1309,8 +1786,12 @@ function CharacterTypesEditor({
                     ...current,
                     characterTypes:
                       current.characterTypes.map(
-                        (item, itemIndex) =>
-                          itemIndex === index
+                        (
+                          item,
+                          itemIndex,
+                        ) =>
+                          itemIndex ===
+                          index
                             ? {
                                 ...item,
                                 name: value,
@@ -1356,7 +1837,10 @@ function CharacterTypesEditor({
                     ...current,
                     characterTypes:
                       current.characterTypes.filter(
-                        (_, itemIndex) =>
+                        (
+                          _,
+                          itemIndex,
+                        ) =>
                           itemIndex !==
                           index,
                       ),
@@ -1393,8 +1877,10 @@ export default function AdminCharactersPage() {
   const [characters, setCharacters] =
     useState<Character[]>([]);
 
-  const [characterTagMasters, setCharacterTagMasters] =
-    useState<CharacterTagMaster[]>([]);
+  const [
+    characterTagMasters,
+    setCharacterTagMasters,
+  ] = useState<CharacterTagMaster[]>([]);
 
   const [form, setForm] =
     useState<FormState>(() =>
@@ -1507,9 +1993,15 @@ export default function AdminCharactersPage() {
         (await response.json()) as Character[],
       );
 
-      const tagResponse = await fetch(`${API_BASE_URL}/character-tags`);
+      const tagResponse =
+        await fetch(
+          `${API_BASE_URL}/character-tags`,
+        );
+
       if (tagResponse.ok) {
-        setCharacterTagMasters((await tagResponse.json()) as CharacterTagMaster[]);
+        setCharacterTagMasters(
+          (await tagResponse.json()) as CharacterTagMaster[],
+        );
       }
     } catch (e) {
       setError(
@@ -1710,7 +2202,9 @@ export default function AdminCharactersPage() {
           },
           body: JSON.stringify({
             folder,
-            filename: filename || `image${ext}`,
+            filename:
+              filename ||
+              `image${ext}`,
             contentType: file.type,
             contentBase64,
           }),
@@ -1766,56 +2260,164 @@ export default function AdminCharactersPage() {
   function buildStats() {
     return {
       levelStats: form.stats
-        .filter((row) => row.level.trim())
+        .filter((row) =>
+          row.level.trim(),
+        )
         .map((row) => ({
-          level: toNumber(row.level, "レベル", true)!,
-          totalPower: toNumber(row.totalPower, "総合力", true)!,
-          hp: toNumber(row.hp, "体力", true)!,
-          attack: toNumber(row.attack, "攻撃", true)!,
-          defense: toNumber(row.defense, "防御", true)!,
-          critical: toNumber(row.critical, "クリティカル", true)!,
+          level: toNumber(
+            row.level,
+            "レベル",
+            true,
+          )!,
+          totalPower: toNumber(
+            row.totalPower,
+            "総合力",
+            true,
+          )!,
+          hp: toNumber(
+            row.hp,
+            "体力",
+            true,
+          )!,
+          attack: toNumber(
+            row.attack,
+            "攻撃",
+            true,
+          )!,
+          defense: toNumber(
+            row.defense,
+            "防御",
+            true,
+          )!,
+          critical: toNumber(
+            row.critical,
+            "クリティカル",
+            true,
+          )!,
         })),
+
       level100Overboost: {
-        totalPower: toNumber(form.overboost.totalPower, "超過ブースト総合力", true)!,
-        hp: toNumber(form.overboost.hp, "超過ブースト体力", true)!,
-        attack: toNumber(form.overboost.attack, "超過ブースト攻撃", true)!,
-        defense: toNumber(form.overboost.defense, "超過ブースト防御", true)!,
-        critical: toNumber(form.overboost.critical, "超過ブーストクリティカル", true)!,
+        totalPower: toNumber(
+          form.overboost.totalPower,
+          "超過ブースト総合力",
+          true,
+        )!,
+        hp: toNumber(
+          form.overboost.hp,
+          "超過ブースト体力",
+          true,
+        )!,
+        attack: toNumber(
+          form.overboost.attack,
+          "超過ブースト攻撃",
+          true,
+        )!,
+        defense: toNumber(
+          form.overboost.defense,
+          "超過ブースト防御",
+          true,
+        )!,
+        critical: toNumber(
+          form.overboost.critical,
+          "超過ブーストクリティカル",
+          true,
+        )!,
       },
     };
   }
 
+  /*
+   * スキル
+   *
+   * 段階データは完全に廃止。
+   * スキル説明は description に自由入力する。
+   */
   function buildSkills() {
     return form.skills
-      .filter((skill) => skill.name.trim())
+      .filter((skill) =>
+        skill.name.trim(),
+      )
       .map((skill) => ({
-        skillSlot: skill.skillSlot,
-        targetCharacter: skill.targetCharacter.trim() || "共通",
-        variantOrder: toNumber(skill.variantOrder, "進化順", true) ?? 0,
-        imageUrl: skill.imageUrl.trim() || undefined,
-        stages: (skill.stages ?? []).map((stage) => ({
-          label: stage.label.trim() || undefined,
-          power: toNumber(stage.power, "段階威力"),
-          cooldown: toNumber(stage.cooldown, "段階クールタイム"),
-          effect: stage.effect.trim() || undefined,
-          effects: stage.effects,
-          details: (stage.details ?? []).map((detail) => ({ label: detail.label.trim(), value: detail.value.trim() })).filter((detail) => detail.label && detail.value),
-        })),
-        skillType: skill.skillType,
-        name: skill.name.trim(),
-        description: skill.description.trim() || "詳細説明なし",
-        power: toNumber(skill.power, "スキル威力"),
-        cooldown: toNumber(skill.cooldown, "クールタイム"),
-        effectTags: skill.effectTags,
-        statusAilments: skill.statusAilments,
-        defenseIgnore: skill.effectTags.includes("防御力無視"),
-        damageReductionIgnore: skill.effectTags.includes("ダメージ減少無視"),
-        statusAilment: skill.statusAilments.join("、") || undefined,
-        duration: toNumber(skill.duration, "効果時間"),
-        extraEffects: skill.extraEffects.map((value) => value.trim()).filter(Boolean),
-        changeFromSkillIndex: skill.changeFromSkillIndex.trim() === "" ? undefined : toNumber(skill.changeFromSkillIndex, "変化元スキル", true),
-        changeCondition: skill.changeCondition || undefined,
-        changeDuration: toNumber(skill.changeDuration, "変化後効果時間"),
+        skillSlot:
+          skill.skillSlot,
+
+        targetCharacter:
+          skill.targetCharacter.trim() ||
+          "共通",
+
+        variantOrder:
+          toNumber(
+            skill.variantOrder,
+            "進化順",
+            true,
+          ) ?? 0,
+
+        imageUrl:
+          skill.imageUrl.trim() ||
+          undefined,
+
+        skillType:
+          skill.skillType,
+
+        name:
+          skill.name.trim(),
+
+        description:
+          skill.description.trim() ||
+          "詳細説明なし",
+
+        effectTags:
+          skill.effectTags,
+
+        statusAilments:
+          skill.statusAilments,
+
+        defenseIgnore:
+          skill.effectTags.includes(
+            "防御力無視",
+          ),
+
+        damageReductionIgnore:
+          skill.effectTags.includes(
+            "ダメージ減少無視",
+          ),
+
+        statusAilment:
+          skill.statusAilments.join("、") ||
+          undefined,
+
+        duration:
+          toNumber(
+            skill.duration,
+            "効果時間",
+          ),
+
+        extraEffects:
+          skill.extraEffects
+            .map((value) =>
+              value.trim(),
+            )
+            .filter(Boolean),
+
+        changeFromSkillIndex:
+          skill.changeFromSkillIndex.trim() ===
+          ""
+            ? undefined
+            : toNumber(
+                skill.changeFromSkillIndex,
+                "変化元スキル",
+                true,
+              ),
+
+        changeCondition:
+          skill.changeCondition ||
+          undefined,
+
+        changeDuration:
+          toNumber(
+            skill.changeDuration,
+            "変化後効果時間",
+          ),
       }));
   }
 
@@ -1846,19 +2448,34 @@ export default function AdminCharactersPage() {
       const skills =
         buildSkills();
 
-      const traits = form.traits
-        .map((trait) => ({
-          slot: trait.slot,
-          target: trait.target.trim() || "共通",
-          traitName: trait.traitName.trim(),
-          name: trait.traitName.trim() || trait.slot,
-          effects: trait.effects.map((value) => value.trim()).filter(Boolean),
-        }))
-        .filter((trait) => trait.effects.length > 0)
-        .map((trait) => ({
-          ...trait,
-          effect: trait.effects[0] ?? "",
-        }));
+      const traits =
+        form.traits
+          .map((trait) => ({
+            slot: trait.slot,
+            target:
+              trait.target.trim() ||
+              "共通",
+            traitName:
+              trait.traitName.trim(),
+            name:
+              trait.traitName.trim() ||
+              trait.slot,
+            effects:
+              trait.effects
+                .map((value) =>
+                  value.trim(),
+                )
+                .filter(Boolean),
+          }))
+          .filter(
+            (trait) =>
+              trait.effects.length > 0,
+          )
+          .map((trait) => ({
+            ...trait,
+            effect:
+              trait.effects[0] ?? "",
+          }));
 
       const characterTypes =
         form.characterTypes
@@ -1883,11 +2500,15 @@ export default function AdminCharactersPage() {
         description:
           form.description.trim(),
 
-        tags: form.tags,
+        tags:
+          form.tags,
 
-        doubleCharacters: form.doubleCharacters
-          .map((value) => value.trim())
-          .filter(Boolean),
+        doubleCharacters:
+          form.doubleCharacters
+            .map((value) =>
+              value.trim(),
+            )
+            .filter(Boolean),
 
         attribute: {
           base:
@@ -1970,9 +2591,6 @@ export default function AdminCharactersPage() {
             .filter(Boolean),
       };
 
-      /*
-       * 新規作成ではサーバー側でIDを自動生成。
-       */
       const response =
         await fetch(
           editingId
@@ -2031,9 +2649,6 @@ export default function AdminCharactersPage() {
         );
       }
 
-      /*
-       * 新規作成後、生成されたIDを取得。
-       */
       const savedId =
         String(
           data?.id ??
@@ -2047,15 +2662,22 @@ export default function AdminCharactersPage() {
         );
       }
 
-      /*
-       * 画像を選択していた場合は保存後にアップロード。
-       */
       if (imageFile) {
         const publicUrl =
           await uploadImageFile(
             imageFile,
             "characters",
-            `${savedId}${imageFile.name.includes(".") ? imageFile.name.slice(imageFile.name.lastIndexOf(".")).toLowerCase() : ".webp"}`,
+            `${savedId}${
+              imageFile.name.includes(".")
+                ? imageFile.name
+                    .slice(
+                      imageFile.name.lastIndexOf(
+                        ".",
+                      ),
+                    )
+                    .toLowerCase()
+                : ".webp"
+            }`,
           );
 
         if (publicUrl) {
@@ -2095,50 +2717,138 @@ export default function AdminCharactersPage() {
         }
       }
 
-      // スキルアイコンはキャラクター保存後に assets/skills へアップロードし、
-      // 取得したURLをスキルデータへ反映する。
-      const skillFiles = form.skills
-        .map((skill, index) => ({ skill, index }))
-        .filter(({ skill }) => skill.name.trim() && skill.imageFile);
+      /*
+       * スキルアイコンをアップロード
+       */
+      const skillFiles =
+        form.skills
+          .map((skill, index) => ({
+            skill,
+            index,
+          }))
+          .filter(
+            ({ skill }) =>
+              skill.name.trim() &&
+              skill.imageFile,
+          );
 
       if (skillFiles.length > 0) {
-        const updatedSkills = skills.map((skill) => ({ ...skill }));
-        for (const { skill: formSkill, index: formIndex } of skillFiles) {
+        const updatedSkills =
+          skills.map((skill) => ({
+            ...skill,
+          }));
+
+        for (
+          const {
+            skill: formSkill,
+            index: formIndex,
+          } of skillFiles
+        ) {
           let payloadIndex = 0;
-          for (let i = 0; i < formIndex; i += 1) {
-            if (form.skills[i]?.name.trim()) payloadIndex += 1;
+
+          for (
+            let i = 0;
+            i < formIndex;
+            i += 1
+          ) {
+            if (
+              form.skills[i]?.name.trim()
+            ) {
+              payloadIndex += 1;
+            }
           }
-          if (payloadIndex >= updatedSkills.length || !formSkill.imageFile) continue;
-          const ext = formSkill.imageFile.name.includes(".")
-            ? formSkill.imageFile.name.slice(formSkill.imageFile.name.lastIndexOf(".")).toLowerCase()
-            : ".webp";
-          const publicUrl = await uploadImageFile(
-            formSkill.imageFile,
-            "skills",
-            `${savedId}-skill-${payloadIndex + 1}-${toNumber(formSkill.variantOrder, "進化順", true) ?? 0}${ext}`,
-          );
-          if (publicUrl) updatedSkills[payloadIndex] = { ...updatedSkills[payloadIndex], imageUrl: publicUrl };
+
+          if (
+            payloadIndex >=
+              updatedSkills.length ||
+            !formSkill.imageFile
+          ) {
+            continue;
+          }
+
+          const ext =
+            formSkill.imageFile.name.includes(
+              ".",
+            )
+              ? formSkill.imageFile.name
+                  .slice(
+                    formSkill.imageFile.name.lastIndexOf(
+                      ".",
+                    ),
+                  )
+                  .toLowerCase()
+              : ".webp";
+
+          const publicUrl =
+            await uploadImageFile(
+              formSkill.imageFile,
+              "skills",
+              `${savedId}-skill-${
+                payloadIndex + 1
+              }-${toNumber(
+                formSkill.variantOrder,
+                "進化順",
+                true,
+              ) ?? 0}${ext}`,
+            );
+
+          if (publicUrl) {
+            updatedSkills[
+              payloadIndex
+            ] = {
+              ...updatedSkills[
+                payloadIndex
+              ],
+              imageUrl:
+                publicUrl,
+            };
+          }
         }
 
-        const skillResponse = await fetch(
-          `${API_BASE_URL}/characters/${encodeURIComponent(savedId)}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+        const skillResponse =
+          await fetch(
+            `${API_BASE_URL}/characters/${encodeURIComponent(
+              savedId,
+            )}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type":
+                  "application/json",
+                Authorization:
+                  `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                skills:
+                  updatedSkills,
+              }),
             },
-            body: JSON.stringify({ skills: updatedSkills }),
-          },
-        );
+          );
+
         if (!skillResponse.ok) {
-          const skillData = await skillResponse.json().catch(() => null);
-          throw new Error(skillData?.message ?? "スキルアイコンのURL保存に失敗しました。");
+          const skillData =
+            await skillResponse
+              .json()
+              .catch(() => null);
+
+          throw new Error(
+            skillData?.message ??
+              "スキルアイコンのURL保存に失敗しました。",
+          );
         }
-        setForm((current) => ({
-          ...current,
-          skills: current.skills.map((item) => ({ ...item, imageFile: null })),
-        }));
+
+        setForm(
+          (current) => ({
+            ...current,
+            skills:
+              current.skills.map(
+                (item) => ({
+                  ...item,
+                  imageFile: null,
+                }),
+              ),
+          }),
+        );
       }
 
       setMessage(
@@ -2183,12 +2893,22 @@ export default function AdminCharactersPage() {
     index: number,
     event: ChangeEvent<HTMLInputElement>,
   ) {
-    const file = event.target.files?.[0] ?? null;
+    const file =
+      event.target.files?.[0] ?? null;
+
     setForm((current) => ({
       ...current,
-      skills: current.skills.map((skill, skillIndex) =>
-        skillIndex === index ? { ...skill, imageFile: file } : skill,
-      ),
+      skills:
+        current.skills.map(
+          (skill, skillIndex) =>
+            skillIndex === index
+              ? {
+                  ...skill,
+                  imageFile:
+                    file,
+                }
+              : skill,
+        ),
     }));
   }
 
@@ -2259,9 +2979,7 @@ export default function AdminCharactersPage() {
         )}
 
         <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          {/* ====================================================
-           * Character List
-           * ==================================================== */}
+          {/* Character List */}
           <section className="min-w-0 rounded-md border border-card-border bg-card p-4 shadow-card">
             <div className="mb-4 flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
               <Search
@@ -2403,9 +3121,7 @@ export default function AdminCharactersPage() {
             )}
           </section>
 
-          {/* ====================================================
-           * Side Info
-           * ==================================================== */}
+          {/* Side Info */}
           <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
             <div className="flex items-start gap-3">
               <ShieldAlert
@@ -2427,9 +3143,7 @@ export default function AdminCharactersPage() {
           </section>
         </div>
 
-        {/* ======================================================
-         * Editor
-         * ====================================================== */}
+        {/* Editor */}
         <form
           onSubmit={submit}
           className="space-y-6"
@@ -2574,7 +3288,10 @@ export default function AdminCharactersPage() {
                 label="キャラタグ（複数選択）"
                 options={
                   characterTagMasters.length
-                    ? characterTagMasters.map((tag) => tag.name)
+                    ? characterTagMasters.map(
+                        (tag) =>
+                          tag.name,
+                      )
                     : CHARACTER_TAG_OPTIONS
                 }
                 selected={form.tags}
@@ -2587,17 +3304,108 @@ export default function AdminCharactersPage() {
                   )
                 }
               />
-              <p className="mt-2 text-[10px] leading-5 text-muted-foreground">タグの名前・サポート効果は「管理画面 → キャラクタータグ管理」で変更できます。</p>
+
+              <p className="mt-2 text-[10px] leading-5 text-muted-foreground">
+                タグの名前・サポート効果は「管理画面 → キャラクタータグ管理」で変更できます。
+              </p>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">
               <div className="mb-3 flex items-center justify-between">
-                <div><span className="text-xs font-black">ダブルキャラ</span><p className="mt-1 text-[10px] text-muted-foreground">2人以上のキャラ名を登録すると、スキル・特性の対象キャラ選択に使えます。</p></div>
-                <button type="button" onClick={() => setForm((current) => ({ ...current, doubleCharacters: [...current.doubleCharacters, ""] }))} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold"><Plus size={12} />追加</button>
+                <div>
+                  <span className="text-xs font-black">
+                    ダブルキャラ
+                  </span>
+
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    2人以上のキャラ名を登録すると、スキル・特性の対象キャラ選択に使えます。
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm(
+                      (current) => ({
+                        ...current,
+                        doubleCharacters:
+                          [
+                            ...current.doubleCharacters,
+                            "",
+                          ],
+                      }),
+                    )
+                  }
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold"
+                >
+                  <Plus size={12} />
+                  追加
+                </button>
               </div>
-              <div className="space-y-2">{form.doubleCharacters.map((value, index) => (
-                <div key={index} className="flex gap-2"><input value={value} onChange={(event) => setForm((current) => ({ ...current, doubleCharacters: current.doubleCharacters.map((item, i) => i === index ? event.target.value : item) }))} placeholder={`キャラクター${index + 1}`} className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary" /><button type="button" onClick={() => setForm((current) => ({ ...current, doubleCharacters: current.doubleCharacters.filter((_, i) => i !== index) }))} className="rounded border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
-              ))}</div>
+
+              <div className="space-y-2">
+                {form.doubleCharacters.map(
+                  (value, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-2"
+                    >
+                      <input
+                        value={value}
+                        onChange={(
+                          event,
+                        ) =>
+                          setForm(
+                            (current) => ({
+                              ...current,
+                              doubleCharacters:
+                                current.doubleCharacters.map(
+                                  (
+                                    item,
+                                    i,
+                                  ) =>
+                                    i ===
+                                    index
+                                      ? event
+                                          .target
+                                          .value
+                                      : item,
+                                ),
+                            }),
+                          )
+                        }
+                        placeholder={`キャラクター${
+                          index + 1
+                        }`}
+                        className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm(
+                            (current) => ({
+                              ...current,
+                              doubleCharacters:
+                                current.doubleCharacters.filter(
+                                  (
+                                    _,
+                                    i,
+                                  ) =>
+                                    i !==
+                                    index,
+                                ),
+                            }),
+                          )
+                        }
+                        className="rounded border border-border px-3 text-muted-foreground hover:text-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
 
             <div className="mt-5">
