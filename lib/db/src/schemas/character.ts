@@ -69,12 +69,18 @@ export interface IChangeOption<T> {
   changesTo: T[];
 }
 
+export interface ISkillStageDetail {
+  label: string;
+  value: string;
+}
+
 export interface ISkillStage {
   label?: string;
   power?: number;
   cooldown?: number;
   effect?: string;
   effects?: string[];
+  details?: ISkillStageDetail[];
 }
 
 export interface ISkill {
@@ -187,6 +193,14 @@ const characterStatsSchema = new Schema<ICharacterStats>(
   { _id: false },
 );
 
+const skillStageDetailSchema = new Schema<ISkillStageDetail>(
+  {
+    label: { type: String, required: true },
+    value: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 const skillStageSchema = new Schema<ISkillStage>(
   {
     label: { type: String },
@@ -194,6 +208,7 @@ const skillStageSchema = new Schema<ISkillStage>(
     cooldown: { type: Number, min: 0 },
     effect: { type: String },
     effects: { type: [String], default: [] },
+    details: { type: [skillStageDetailSchema], default: [] },
   },
   { _id: false },
 );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Database, ShieldCheck, Swords } from "lucide-react";
+import { ArrowRight, Database, ShieldCheck, Swords, Tags } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 
@@ -122,6 +122,18 @@ export default function AdminPage() {
             <Database size={14} />
             {characterCount}件登録
           </div>
+        </Link>
+
+        <Link
+          href="/admin/character-tags"
+          className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="grid h-11 w-11 place-items-center rounded-md bg-amber-500/10 text-amber-600"><Tags size={21} /></div>
+            <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+          </div>
+          <h2 className="mt-5 text-lg font-black">キャラクタータグ管理</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">キャラタグの名前・説明・サポート時の効果を登録・編集します。</p>
         </Link>
 
         <div className="rounded-lg border border-card-border bg-card p-6 shadow-card">

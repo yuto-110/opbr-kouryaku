@@ -19,6 +19,7 @@ import MyPage from '@/pages/mypage';
 import StrategyPage from '@/pages/strategy';
 import RankingsPage from '@/pages/rankings';
 import AdminCharactersPage from '@/pages/admin-characters';
+import AdminCharacterTagsPage from '@/pages/admin-character-tags';
 import AuthPage from '@/pages/auth';
 import AdminPage from '@/pages/admin';
 
@@ -105,6 +106,11 @@ function Router() {
         <Route
           path="/admin/characters"
           component={AdminCharactersPage}
+        />
+
+        <Route
+          path="/admin/character-tags"
+          component={AdminCharacterTagsPage}
         />
 
         <Route component={NotFound} />

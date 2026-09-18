@@ -309,12 +309,18 @@ export const StatusAilmentSchema =
     STATUS_AILMENT_OPTIONS,
   );
 
+export const SkillStageDetailSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  value: z.string().trim().min(1).max(5000),
+});
+
 export const SkillStageSchema = z.object({
   label: z.string().max(200).optional(),
   power: z.number().min(0).optional(),
   cooldown: z.number().min(0).optional(),
   effect: z.string().max(5000).optional(),
   effects: z.array(z.string().max(5000)).default([]),
+  details: z.array(SkillStageDetailSchema).default([]),
 });
 
 export const SkillSchema = z.object({

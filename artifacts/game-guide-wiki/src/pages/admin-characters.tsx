@@ -234,7 +234,7 @@ type Character = {
     targetCharacter?: string;
     variantOrder?: number;
     imageUrl?: string;
-    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[] }>;
+    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[]; details?: Array<{ label: string; value: string }> }>;
     skillType?: SkillType;
     name: string;
     description: string;
@@ -283,6 +283,15 @@ type Character = {
   relatedCharacters?: string[];
 };
 
+type CharacterTagMaster = {
+  id: string;
+  name: string;
+  description?: string;
+  supportEffect?: string;
+  supportCategory?: string;
+  active?: boolean;
+};
+
 type StatRow = {
   level: string;
   totalPower: string;
@@ -292,12 +301,18 @@ type StatRow = {
   critical: string;
 };
 
+type SkillStageDetailForm = {
+  label: string;
+  value: string;
+};
+
 type SkillStageForm = {
   label: string;
   power: string;
   cooldown: string;
   effect: string;
   effects: string[];
+  details: SkillStageDetailForm[];
 };
 
 type SkillForm = {
@@ -391,7 +406,7 @@ function emptySkill(): SkillForm {
     targetCharacter: "共通",
     variantOrder: "0",
     imageUrl: "",
-    stages: [{ label: "1段目", power: "", cooldown: "", effect: "", effects: [] }],
+    stages: [{ label: "1段目", power: "", cooldown: "", effect: "", effects: [], details: [] }],
     skillType: "通常",
     name: "",
     description: "",
@@ -488,8 +503,9 @@ function makeForm(character?: Character): FormState {
               cooldown: stage.cooldown === undefined ? "" : String(stage.cooldown),
               effect: stage.effect ?? "",
               effects: stage.effects ?? [],
+              details: stage.details ?? [],
             }))
-          : [{ label: "1段目", power: skill.power === undefined ? "" : String(skill.power), cooldown: skill.cooldown === undefined ? "" : String(skill.cooldown), effect: skill.description ?? "", effects: [] }],
+          : [{ label: "1段目", power: skill.power === undefined ? "" : String(skill.power), cooldown: skill.cooldown === undefined ? "" : String(skill.cooldown), effect: "", effects: [], details: [] }],
         skillType: skill.skillType ?? "通常",
         name: skill.name ?? "",
         description: skill.description ?? "",
@@ -1013,12 +1029,32 @@ function SkillsEditor({
 
   function addStage(skillIndex: number) {
     const stages = form.skills[skillIndex]?.stages ?? [];
-    updateSkill(skillIndex, { stages: [...stages, { label: `${stages.length + 1}段目`, power: "", cooldown: "", effect: "", effects: [] }] });
+    updateSkill(skillIndex, { stages: [...stages, { label: "", power: "", cooldown: "", effect: "", effects: [], details: [] }] });
   }
 
   function removeStage(skillIndex: number, stageIndex: number) {
     const stages = form.skills[skillIndex]?.stages ?? [];
     updateSkill(skillIndex, { stages: stages.filter((_, i) => i !== stageIndex) });
+  }
+
+  function updateStageDetail(skillIndex: number, stageIndex: number, detailIndex: number, patch: Partial<SkillStageDetailForm>) {
+    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
+    if (!stage) return;
+    updateStage(skillIndex, stageIndex, {
+      details: (stage.details ?? []).map((detail, i) => i === detailIndex ? { ...detail, ...patch } : detail),
+    });
+  }
+
+  function addStageDetail(skillIndex: number, stageIndex: number) {
+    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
+    if (!stage) return;
+    updateStage(skillIndex, stageIndex, { details: [...(stage.details ?? []), { label: "", value: "" }] });
+  }
+
+  function removeStageDetail(skillIndex: number, stageIndex: number, detailIndex: number) {
+    const stage = form.skills[skillIndex]?.stages?.[stageIndex];
+    if (!stage) return;
+    updateStage(skillIndex, stageIndex, { details: (stage.details ?? []).filter((_, i) => i !== detailIndex) });
   }
 
   function addExtraEffect(index: number) {
@@ -1093,7 +1129,18 @@ function SkillsEditor({
                       <Field label="CT" type="number" value={stage.cooldown} onChange={(value) => updateStage(index, stageIndex, { cooldown: value })} />
                       <div className="flex items-end"><button type="button" onClick={() => removeStage(index, stageIndex)} className="w-full rounded border border-border px-2 py-2 text-xs text-muted-foreground hover:text-red-600"><Trash2 size={13} className="mx-auto" /></button></div>
                     </div>
-                    <div className="mt-3"><TextArea label="段階の説明" value={stage.effect} onChange={(value) => updateStage(index, stageIndex, { effect: value })} rows={3} placeholder="敵の防御力を無視してダメージを与える、など" /></div>
+                    <div className="mt-3"><TextArea label="段階の説明" value={stage.effect} onChange={(value) => updateStage(index, stageIndex, { effect: value })} rows={3} placeholder="この段階だけの説明" /></div>
+                    <div className="mt-4 rounded-md border border-border bg-card p-3">
+                      <div className="mb-3 flex items-center justify-between"><span className="text-xs font-black">段階ごとの自由入力情報</span><button type="button" onClick={() => addStageDetail(index, stageIndex)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold"><Plus size={12} />情報追加</button></div>
+                      <p className="mb-3 text-[10px] leading-5 text-muted-foreground">威力・CT以外も「項目名」と「内容」を自由に追加できます。例：最大ヒット数 / ダメージ減少無視 / 発動時効果 など。</p>
+                      <div className="space-y-2">{(stage.details ?? []).map((detail, detailIndex) => (
+                        <div key={detailIndex} className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)_auto]">
+                          <Field label="項目名" value={detail.label} onChange={(value) => updateStageDetail(index, stageIndex, detailIndex, { label: value })} placeholder="最大ヒット数" />
+                          <TextArea label="内容" value={detail.value} onChange={(value) => updateStageDetail(index, stageIndex, detailIndex, { value })} rows={2} placeholder="3回" />
+                          <button type="button" onClick={() => removeStageDetail(index, stageIndex, detailIndex)} className="self-end rounded border border-border px-3 py-2 text-muted-foreground hover:text-red-600"><X size={14} /></button>
+                        </div>
+                      ))}</div>
+                    </div>
                     <div className="mt-3"><TagPicker label="段階の効果タグ" options={SKILL_EFFECT_TAG_OPTIONS} selected={stage.effects} onChange={(values) => updateStage(index, stageIndex, { effects: values })} /></div>
                   </div>
                 ))}
@@ -1346,6 +1393,9 @@ export default function AdminCharactersPage() {
   const [characters, setCharacters] =
     useState<Character[]>([]);
 
+  const [characterTagMasters, setCharacterTagMasters] =
+    useState<CharacterTagMaster[]>([]);
+
   const [form, setForm] =
     useState<FormState>(() =>
       makeForm(),
@@ -1456,6 +1506,11 @@ export default function AdminCharactersPage() {
       setCharacters(
         (await response.json()) as Character[],
       );
+
+      const tagResponse = await fetch(`${API_BASE_URL}/character-tags`);
+      if (tagResponse.ok) {
+        setCharacterTagMasters((await tagResponse.json()) as CharacterTagMaster[]);
+      }
     } catch (e) {
       setError(
         e instanceof Error
@@ -1744,6 +1799,7 @@ export default function AdminCharactersPage() {
           cooldown: toNumber(stage.cooldown, "段階クールタイム"),
           effect: stage.effect.trim() || undefined,
           effects: stage.effects,
+          details: (stage.details ?? []).map((detail) => ({ label: detail.label.trim(), value: detail.value.trim() })).filter((detail) => detail.label && detail.value),
         })),
         skillType: skill.skillType,
         name: skill.name.trim(),
@@ -2517,7 +2573,9 @@ export default function AdminCharactersPage() {
               <TagPicker
                 label="キャラタグ（複数選択）"
                 options={
-                  CHARACTER_TAG_OPTIONS
+                  characterTagMasters.length
+                    ? characterTagMasters.map((tag) => tag.name)
+                    : CHARACTER_TAG_OPTIONS
                 }
                 selected={form.tags}
                 onChange={(values) =>
@@ -2529,6 +2587,7 @@ export default function AdminCharactersPage() {
                   )
                 }
               />
+              <p className="mt-2 text-[10px] leading-5 text-muted-foreground">タグの名前・サポート効果は「管理画面 → キャラクタータグ管理」で変更できます。</p>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">

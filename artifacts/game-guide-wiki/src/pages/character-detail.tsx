@@ -67,7 +67,7 @@ type Character = {
     effectTags?: string[];
     duration?: number;
     extraEffects?: string[];
-    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[] }>;
+    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[]; details?: Array<{ label: string; value: string }> }>;
     changeFromSkillIndex?: number;
     changeCondition?: string;
     changeDuration?: number;
@@ -116,12 +116,20 @@ function SkillGroup({ title, skills, targets }: { title: string; skills: NonNull
       <div className="border-b-2 border-primary/40 px-5 py-4"><h3 className="text-xl font-black">{title}「{active.name}」</h3></div>
       {variants.length > 1 && <div className="flex overflow-x-auto border-b border-border bg-background px-3 pt-2">{variants.map(({ skill, index }) => <button key={`${skill.name}-${index}`} type="button" onClick={() => setVariantIndex(index)} className={`rounded-t-md border px-4 py-2 text-xs font-black ${index === variantIndex ? "border-primary bg-primary text-white" : "border-border bg-card text-primary"}`}>{labelFor(skill)}</button>)}</div>}
       <div className="p-4 sm:p-6">
-        <div className="grid overflow-hidden rounded-md border border-border md:grid-cols-[112px_1fr]">
-          <div className="grid h-[112px] w-[112px] place-items-center border-b border-border bg-muted p-3 md:border-b-0 md:border-r">{active.imageUrl ? <img src={active.imageUrl} alt="" className="h-20 w-20 object-contain" /> : <div className="text-[10px] font-bold text-muted-foreground">SKILL ICON</div>}</div>
-          <div className="p-4">
-            {(active.stages ?? []).length > 0 ? <div className="space-y-2">{active.stages?.map((stage, i) => <div key={i} className="border-b border-border pb-2 last:border-b-0"><div className="text-sm font-bold">{stage.label || `${i + 1}段目`}{stage.power !== undefined ? `：スキル威力${stage.power}` : ""}</div>{stage.cooldown !== undefined && <div className="text-sm">クールタイム{stage.cooldown}秒</div>}{stage.effect && <div className="mt-1 text-sm text-muted-foreground">{stage.effect}</div>}</div>)}</div> : <div className="space-y-1 text-sm">{active.power !== undefined && <div>1段目：スキル威力{active.power}</div>}{active.cooldown !== undefined && <div>クールタイム{active.cooldown}秒</div>}</div>}
-            {active.effectTags?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{active.effectTags.map((tag) => <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">{tag}</span>)}</div> : null}
-            {active.statusAilments?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{active.statusAilments.map((tag) => <span key={tag} className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">{tag}</span>)}</div> : null}
+        <div className="overflow-hidden rounded-md border border-border">
+          <div className="flex min-w-0 flex-row items-stretch">
+            <div className="flex w-[92px] shrink-0 items-center justify-center border-r border-border bg-muted p-2 sm:w-[120px] sm:p-3">{active.imageUrl ? <img src={active.imageUrl} alt="" className="h-16 w-16 object-contain sm:h-20 sm:w-20" /> : <div className="text-center text-[9px] font-bold text-muted-foreground">SKILL ICON</div>}</div>
+            <div className="min-w-0 flex-1 p-3 sm:p-4">
+              {(active.stages ?? []).length > 0 ? <div className="space-y-2">{active.stages?.map((stage, i) => <div key={i} className="border-b border-border pb-2 last:border-b-0">
+                <div className="text-sm font-bold leading-6">{stage.label || `${i + 1}段目`}</div>
+                {stage.power !== undefined && <div className="text-sm">スキル威力{stage.power}</div>}
+                {stage.cooldown !== undefined && <div className="text-sm">クールタイム{stage.cooldown}秒</div>}
+                {(stage.details ?? []).map((detail, detailIndex) => <div key={detailIndex} className="text-sm">{detail.label}：{detail.value}</div>)}
+                {stage.effect && <div className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{stage.effect}</div>}
+              </div>)}</div> : <div className="space-y-1 text-sm">{active.power !== undefined && <div>1段目：スキル威力{active.power}</div>}{active.cooldown !== undefined && <div>クールタイム{active.cooldown}秒</div>}</div>}
+              {active.effectTags?.length ? <div className="mt-3 flex flex-wrap gap-1.5">{active.effectTags.map((tag) => <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">{tag}</span>)}</div> : null}
+              {active.statusAilments?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{active.statusAilments.map((tag) => <span key={tag} className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">{tag}</span>)}</div> : null}
+            </div>
           </div>
         </div>
         <div className="mt-4 border-t border-border pt-4"><div className="mb-2 text-xs font-black text-muted-foreground">詳細</div><div className="whitespace-pre-line text-sm leading-7">{active.description}</div></div>
@@ -388,7 +396,7 @@ export default function CharacterDetailPage() {
             <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
               <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">ステータス</h2>
 
-              {latestStats || overboostStats ? (
+              {latestStats || overboostStats || character.stats ? (
                 <>
                   {latestStats ? (
                     <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
@@ -413,7 +421,7 @@ export default function CharacterDetailPage() {
                   ) : null}
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground">ステータスがまだ登録されていません。</p>
+                <p className="text-xs text-muted-foreground">ステータスの数値がまだ登録されていません。</p>
               )}
 
               {levelStats.length > 1 && (
