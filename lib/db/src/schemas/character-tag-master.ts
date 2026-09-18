@@ -1,23 +1,6 @@
-import { Schema, model, type Document } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
-export interface ICharacterTagLevel {
-  level: number;
-  totalLevel: number;
-  effect: string;
-}
-
-export interface ICharacterTagMaster extends Document {
-  id: string;
-  name: string;
-  supportEffect: string;
-  supportCategory: string;
-  levels: ICharacterTagLevel[];
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const characterTagLevelSchema = new Schema<ICharacterTagLevel>(
+const CharacterTagLevelSchema = new Schema(
   {
     level: {
       type: Number,
@@ -29,48 +12,48 @@ const characterTagLevelSchema = new Schema<ICharacterTagLevel>(
       type: Number,
       required: true,
       min: 0,
-      max: 600,
+      default: 0,
     },
     effect: {
       type: String,
-      default: "",
       trim: true,
+      default: "",
     },
   },
   { _id: false },
 );
 
-const characterTagMasterSchema = new Schema<ICharacterTagMaster>(
+const CharacterTagMasterSchema = new Schema(
   {
     id: {
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
-      match: /^[a-z0-9-]+$/,
+      index: true,
+      trim: true,
     },
 
     name: {
       type: String,
       required: true,
-      trim: true,
       unique: true,
-    },
-
-    supportEffect: {
-      type: String,
-      default: "",
       trim: true,
     },
 
     supportCategory: {
       type: String,
-      default: "その他",
       trim: true,
+      default: "その他",
+    },
+
+    supportEffect: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     levels: {
-      type: [characterTagLevelSchema],
+      type: [CharacterTagLevelSchema],
       default: () =>
         Array.from({ length: 5 }, (_, index) => ({
           level: index + 1,
@@ -82,15 +65,14 @@ const characterTagMasterSchema = new Schema<ICharacterTagMaster>(
     active: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-characterTagMasterSchema.index({ name: 1 });
-characterTagMasterSchema.index({ active: 1, name: 1 });
-
-export const CharacterTagMaster = model<ICharacterTagMaster>(
-  "CharacterTagMaster",
-  characterTagMasterSchema,
-);
+export const CharacterTagMaster =
+  models.CharacterTagMaster ||
+  model("CharacterTagMaster", CharacterTagMasterSchema);
