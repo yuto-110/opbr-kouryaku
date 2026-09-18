@@ -130,6 +130,7 @@ export default function MyPage() {
 
         for (const character of characters) {
           map[character.id] = character;
+          map[character.id.toLowerCase()] = character;
         }
 
         setCharacterMap(map);
@@ -314,7 +315,7 @@ export default function MyPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 {ownedCharacters.map((owned) => {
                   const character =
-                    characterMap[owned.characterId];
+                    characterMap[owned.characterId] ?? characterMap[owned.characterId.toLowerCase()];
 
                   return (
                     <div
@@ -434,7 +435,7 @@ export default function MyPage() {
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {favoriteCharacters.map((characterId) => {
-                  const character = characterMap[characterId];
+                  const character = characterMap[characterId] ?? characterMap[characterId.toLowerCase()];
                   if (!character) return null;
                   const isOwned = ownedCharacters.some(
                     (item) => item.characterId === characterId,

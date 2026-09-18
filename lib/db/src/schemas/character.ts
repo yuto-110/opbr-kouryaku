@@ -69,7 +69,20 @@ export interface IChangeOption<T> {
   changesTo: T[];
 }
 
+export interface ISkillStage {
+  label?: string;
+  power?: number;
+  cooldown?: number;
+  effect?: string;
+  effects?: string[];
+}
+
 export interface ISkill {
+  skillSlot?: "スキル1" | "スキル2" | "その他";
+  targetCharacter?: string;
+  variantOrder?: number;
+  imageUrl?: string;
+  stages?: ISkillStage[];
   skillType?: "通常" | "ダブルキャラ" | "スタイルチェンジ" | "EVスキル" | "コンボスキル" | "奪取中カウンタースキル";
   name: string;
   description: string;
@@ -93,6 +106,7 @@ export interface ITrait {
   traitName: string;
   name: string;
   effect: string;
+  effects?: string[];
 }
 
 export interface ICharacterType {
@@ -115,6 +129,7 @@ export interface ICharacter extends Document {
   faction?: string;
   description?: string;
   tags: string[];
+  doubleCharacters: string[];
 
   attribute: IChangeOption<CharacterAttribute>;
   role: IChangeOption<CharacterRole>;
@@ -172,8 +187,24 @@ const characterStatsSchema = new Schema<ICharacterStats>(
   { _id: false },
 );
 
+const skillStageSchema = new Schema<ISkillStage>(
+  {
+    label: { type: String },
+    power: { type: Number, min: 0 },
+    cooldown: { type: Number, min: 0 },
+    effect: { type: String },
+    effects: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+
 const skillSchema = new Schema<ISkill>(
   {
+    skillSlot: { type: String, enum: ["スキル1", "スキル2", "その他"], default: "その他" },
+    targetCharacter: { type: String, default: "共通" },
+    variantOrder: { type: Number, min: 0, default: 0 },
+    imageUrl: { type: String },
+    stages: { type: [skillStageSchema], default: [] },
     name: { type: String, required: true },
     description: { type: String, required: true },
     power: { type: Number, min: 0 },
@@ -210,7 +241,8 @@ const traitSchema = new Schema<ITrait>(
     target: { type: String, required: true, default: "共通" },
     traitName: { type: String, required: true, default: "" },
     name: { type: String, required: true },
-    effect: { type: String, required: true },
+    effect: { type: String, default: "" },
+    effects: { type: [String], default: [] },
   },
   { _id: false },
 );
@@ -248,6 +280,7 @@ const characterSchema = new Schema<ICharacter>(
     faction: { type: String, trim: true, default: "" },
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },
+    doubleCharacters: { type: [String], default: [] },
 
     attribute: {
       base: {

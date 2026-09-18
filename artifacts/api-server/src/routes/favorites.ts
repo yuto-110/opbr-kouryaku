@@ -18,7 +18,7 @@ router.get("/users/me/favorites", requireAuth, async (req: AuthenticatedRequest,
 
 router.post("/users/me/favorites/:characterId", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const characterId = String(req.params.characterId ?? "").trim();
+    const characterId = String(req.params.characterId ?? "").trim().toLowerCase();
     if (!characterId) return res.status(400).json({ code: "INVALID_REQUEST", message: "characterIdが正しくありません" });
     await connectDB();
     const character = await Character.findOne({ id: characterId }).lean();
@@ -38,7 +38,7 @@ router.post("/users/me/favorites/:characterId", requireAuth, async (req: Authent
 
 router.delete("/users/me/favorites/:characterId", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const characterId = String(req.params.characterId ?? "").trim();
+    const characterId = String(req.params.characterId ?? "").trim().toLowerCase();
     await connectDB();
     const user = await User.findById(req.user!.id);
     if (!user) return res.status(404).json({ code: "USER_NOT_FOUND", message: "ユーザーが見つかりません" });

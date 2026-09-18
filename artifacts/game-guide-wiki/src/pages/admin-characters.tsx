@@ -195,6 +195,7 @@ type Character = {
   description?: string;
 
   tags?: string[];
+  doubleCharacters?: string[];
 
   attribute: {
     base: string;
@@ -229,6 +230,11 @@ type Character = {
   };
 
   skills?: Array<{
+    skillSlot?: "スキル1" | "スキル2" | "その他";
+    targetCharacter?: string;
+    variantOrder?: number;
+    imageUrl?: string;
+    stages?: Array<{ label?: string; power?: number; cooldown?: number; effect?: string; effects?: string[] }>;
     skillType?: SkillType;
     name: string;
     description: string;
@@ -241,12 +247,18 @@ type Character = {
     extraEffects?: string[];
     effectTags?: string[];
     statusAilments?: string[];
+    changeFromSkillIndex?: number;
+    changeCondition?: "一定時間" | "コンボ成立時" | "奪取中" | "条件達成時";
+    changeDuration?: number;
   }>;
 
   traits?: Array<{
     slot: TraitSlot;
+    target?: string;
+    traitName?: string;
     name?: string;
-    effect: string;
+    effect?: string;
+    effects?: string[];
   }>;
 
   characterTypes?: Array<{
@@ -280,7 +292,20 @@ type StatRow = {
   critical: string;
 };
 
+type SkillStageForm = {
+  label: string;
+  power: string;
+  cooldown: string;
+  effect: string;
+  effects: string[];
+};
+
 type SkillForm = {
+  skillSlot: "スキル1" | "スキル2" | "その他";
+  targetCharacter: string;
+  variantOrder: string;
+  imageUrl: string;
+  stages: SkillStageForm[];
   skillType: SkillType;
   name: string;
   description: string;
@@ -299,7 +324,7 @@ type TraitForm = {
   slot: TraitSlot;
   target: string;
   traitName: string;
-  effect: string;
+  effects: string[];
 };
 
 type CharacterTypeForm = {
@@ -320,6 +345,7 @@ type FormState = {
   description: string;
 
   tags: string[];
+  doubleCharacters: string[];
 
   attributeBase: string;
   roleBase: string;
@@ -359,6 +385,11 @@ function emptyStatRow(level = ""): StatRow {
 
 function emptySkill(): SkillForm {
   return {
+    skillSlot: "スキル1",
+    targetCharacter: "共通",
+    variantOrder: "0",
+    imageUrl: "",
+    stages: [{ label: "1段目", power: "", cooldown: "", effect: "", effects: [] }],
     skillType: "通常",
     name: "",
     description: "",
@@ -379,7 +410,7 @@ function emptyTrait(): TraitForm {
     slot: "キャラ特性",
     target: "共通",
     traitName: "",
-    effect: "",
+    effects: [""],
   };
 }
 
@@ -406,6 +437,7 @@ function makeForm(character?: Character): FormState {
     description: character?.description ?? "",
 
     tags: character?.tags ?? [],
+    doubleCharacters: character?.doubleCharacters ?? [],
 
     attributeBase: character?.attribute?.base ?? "赤",
     roleBase: character?.role?.base ?? "アタッカー",
@@ -423,9 +455,9 @@ function makeForm(character?: Character): FormState {
         attack: String(stat.attack),
         defense: String(stat.defense),
         critical: String(stat.critical),
-      })) ?? [emptyStatRow("1"), emptyStatRow("100")],
+      })) ?? [],
 
-    overboostEnabled: Boolean(character?.stats?.level100Overboost),
+    overboostEnabled: true,
 
     overboost: character?.stats?.level100Overboost
       ? {
@@ -442,6 +474,19 @@ function makeForm(character?: Character): FormState {
 
     skills:
       character?.skills?.map((skill) => ({
+        skillSlot: skill.skillSlot ?? "その他",
+        targetCharacter: skill.targetCharacter ?? "共通",
+        variantOrder: String(skill.variantOrder ?? 0),
+        imageUrl: skill.imageUrl ?? "",
+        stages: (skill.stages ?? []).length > 0
+          ? (skill.stages ?? []).map((stage) => ({
+              label: stage.label ?? "",
+              power: stage.power === undefined ? "" : String(stage.power),
+              cooldown: stage.cooldown === undefined ? "" : String(stage.cooldown),
+              effect: stage.effect ?? "",
+              effects: stage.effects ?? [],
+            }))
+          : [{ label: "1段目", power: skill.power === undefined ? "" : String(skill.power), cooldown: skill.cooldown === undefined ? "" : String(skill.cooldown), effect: skill.description ?? "", effects: [] }],
         skillType: skill.skillType ?? "通常",
         name: skill.name ?? "",
         description: skill.description ?? "",
@@ -491,7 +536,7 @@ function makeForm(character?: Character): FormState {
         slot: trait.slot ?? "キャラ特性",
         target: trait.target ?? "共通",
         traitName: trait.traitName ?? trait.name ?? "",
-        effect: trait.effect ?? "",
+        effects: trait.effects?.length ? trait.effects : [trait.effect ?? ""],
       })) ?? [],
 
     characterTypes:
@@ -635,49 +680,48 @@ function TagPicker({
   selected: string[];
   onChange: (values: string[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   function toggle(option: string) {
-    if (selected.includes(option)) {
-      onChange(
-        selected.filter((item) => item !== option),
-      );
-    } else {
-      onChange([...selected, option]);
-    }
+    onChange(
+      selected.includes(option)
+        ? selected.filter((item) => item !== option)
+        : [...selected, option],
+    );
   }
 
   return (
-    <div>
+    <div className="relative">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-black">
-          {label}
-        </span>
-
-        <span className="text-[10px] text-muted-foreground">
-          {selected.length}個選択中
-        </span>
+        <span className="text-xs font-black">{label}</span>
+        <span className="text-[10px] text-muted-foreground">{selected.length}個選択中</span>
       </div>
-
-      <div className="flex flex-wrap gap-2 rounded-md border border-border bg-background p-3">
-        {options.map((option) => {
-          const active = selected.includes(option);
-
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => toggle(option)}
-              className={
-                active
-                  ? "rounded-full border border-primary bg-primary px-3 py-1.5 text-[11px] font-black text-white"
-                  : "rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:border-primary hover:text-primary"
-              }
-            >
-              {active ? "✓ " : ""}
-              {option}
-            </button>
-          );
-        })}
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex min-h-11 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-left text-sm hover:border-primary"
+      >
+        <span className="flex min-w-0 flex-wrap gap-1.5">
+          {selected.length ? selected.map((value) => (
+            <span key={value} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{value}</span>
+          )) : <span className="text-muted-foreground">クリックして選択</span>}
+        </span>
+        <span className="ml-2 shrink-0 text-muted-foreground">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border bg-card p-2 shadow-xl">
+          {options.map((option) => {
+            const active = selected.includes(option);
+            return (
+              <label key={option} className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs hover:bg-secondary">
+                <input type="checkbox" checked={active} onChange={() => toggle(option)} />
+                <span className={active ? "font-black text-primary" : ""}>{option}</span>
+              </label>
+            );
+          })}
+          <button type="button" onClick={() => setOpen(false)} className="mt-1 w-full rounded border border-border px-2 py-2 text-xs font-bold">閉じる</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -899,24 +943,9 @@ function StatsEditor({
       </div>
 
       <div className="mt-5 border-t border-border pt-5">
-        <label className="flex items-center gap-2 text-xs font-black">
-          <input
-            type="checkbox"
-            checked={form.overboostEnabled}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                overboostEnabled:
-                  event.target.checked,
-              }))
-            }
-          />
-
-          Lv100超過ブーストのステータスを登録する
-        </label>
-
-        {form.overboostEnabled && (
-          <div className="mt-4 grid gap-3 md:grid-cols-5">
+        <div className="text-xs font-black">Lv100超過ブーストのステータス <span className="text-red-600">*</span></div>
+        <p className="mt-1 text-[10px] text-muted-foreground">保存にはこの5項目が必須です。</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
             {(
               [
                 ["totalPower", "総合力"],
@@ -942,8 +971,7 @@ function StatsEditor({
                 }
               />
             ))}
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );
@@ -960,283 +988,121 @@ function SkillsEditor({
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
 }) {
-  function updateSkill(
-    index: number,
-    patch: Partial<SkillForm>,
-  ) {
+  function updateSkill(index: number, patch: Partial<SkillForm>) {
     setForm((current) => ({
       ...current,
-      skills: current.skills.map(
-        (skill, skillIndex) =>
-          skillIndex === index
-            ? { ...skill, ...patch }
-            : skill,
-      ),
+      skills: current.skills.map((skill, i) => i === index ? { ...skill, ...patch } : skill),
     }));
   }
 
   function addSkill() {
-    setForm((current) => ({
-      ...current,
-      skills: [
-        ...current.skills,
-        emptySkill(),
-      ],
-    }));
+    setForm((current) => ({ ...current, skills: [...current.skills, emptySkill()] }));
   }
 
   function removeSkill(index: number) {
-    setForm((current) => ({
-      ...current,
-      skills: current.skills.filter(
-        (_, skillIndex) =>
-          skillIndex !== index,
-      ),
-    }));
+    setForm((current) => ({ ...current, skills: current.skills.filter((_, i) => i !== index) }));
+  }
+
+  function updateStage(skillIndex: number, stageIndex: number, patch: Partial<SkillStageForm>) {
+    const stages = form.skills[skillIndex]?.stages ?? [];
+    updateSkill(skillIndex, { stages: stages.map((stage, i) => i === stageIndex ? { ...stage, ...patch } : stage) });
+  }
+
+  function addStage(skillIndex: number) {
+    const stages = form.skills[skillIndex]?.stages ?? [];
+    updateSkill(skillIndex, { stages: [...stages, { label: `${stages.length + 1}段目`, power: "", cooldown: "", effect: "", effects: [] }] });
+  }
+
+  function removeStage(skillIndex: number, stageIndex: number) {
+    const stages = form.skills[skillIndex]?.stages ?? [];
+    updateSkill(skillIndex, { stages: stages.filter((_, i) => i !== stageIndex) });
   }
 
   function addExtraEffect(index: number) {
-    const skill = form.skills[index];
-
-    updateSkill(index, {
-      extraEffects: [
-        ...skill.extraEffects,
-        "",
-      ],
-    });
+    updateSkill(index, { extraEffects: [...(form.skills[index]?.extraEffects ?? []), ""] });
   }
 
   return (
     <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-black">
-            スキル
-          </h2>
-
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            スキルごとに効果タグ・状態異常を複数選択できます。
-          </p>
+          <h2 className="text-base font-black">スキル</h2>
+          <p className="mt-1 text-[11px] text-muted-foreground">スクショのWiki構造に合わせ、スキル1/2・EV進化・ダブルキャラ・コンボ変化を登録できます。</p>
         </div>
-
-        <button
-          type="button"
-          onClick={addSkill}
-          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"
-        >
-          <Plus size={14} />
-          スキル追加
-        </button>
+        <button type="button" onClick={addSkill} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"><Plus size={14} />スキル追加</button>
       </div>
 
       <div className="space-y-5">
-        {form.skills.length === 0 && (
-          <div className="rounded-md border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
-            スキルが登録されていません。
-          </div>
-        )}
-
         {form.skills.map((skill, index) => (
-          <div
-            key={index}
-            className="rounded-md border border-border bg-background p-4"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-black">
-                スキル {index + 1}
-              </h3>
-
-              <button
-                type="button"
-                onClick={() =>
-                  removeSkill(index)
-                }
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[10px] font-black text-muted-foreground hover:text-red-600"
-              >
-                <Trash2 size={13} />
-                削除
-              </button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <SelectField
-                label="スキルタイプ"
-                value={skill.skillType}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    skillType:
-                      value as SkillType,
-                  })
-                }
-                options={
-                  SKILL_TYPE_OPTIONS
-                }
-              />
-
-              <Field
-                label="スキル名"
-                value={skill.name}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    name: value,
-                  })
-                }
-                placeholder="例：火拳"
-              />
-
-              <Field
-                label="威力（%）"
-                type="number"
-                value={skill.power}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    power: value,
-                  })
-                }
-              />
-
-              <Field
-                label="クールタイム（秒）"
-                type="number"
-                value={skill.cooldown}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    cooldown: value,
-                  })
-                }
-              />
-
-              <Field
-                label="状態異常・効果時間（秒）"
-                type="number"
-                value={skill.duration}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    duration: value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="mt-4">
-              <TextArea
-                label="スキル説明"
-                value={skill.description}
-                onChange={(value) =>
-                  updateSkill(index, {
-                    description: value,
-                  })
-                }
-                rows={5}
-                placeholder="スキルの詳細な効果を入力"
-              />
-            </div>
-
-            <div className="mt-5">
-              <TagPicker
-                label="スキル効果タグ（複数選択）"
-                options={
-                  SKILL_EFFECT_TAG_OPTIONS
-                }
-                selected={
-                  skill.effectTags
-                }
-                onChange={(values) =>
-                  updateSkill(index, {
-                    effectTags:
-                      values as string[],
-                  })
-                }
-              />
-            </div>
-
-            <div className="mt-5">
-              <TagPicker
-                label="状態異常タグ（複数選択）"
-                options={
-                  STATUS_AILMENT_OPTIONS
-                }
-                selected={
-                  skill.statusAilments
-                }
-                onChange={(values) =>
-                  updateSkill(index, {
-                    statusAilments:
-                      values as string[],
-                  })
-                }
-              />
-            </div>
-
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-black">
-                  その他の効果
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    addExtraEffect(index)
-                  }
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-black hover:border-primary hover:text-primary"
-                >
-                  <Plus size={12} />
-                  追加
-                </button>
+          <div key={index} className="rounded-lg border border-border bg-background p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-sm font-black">スキル {index + 1}</h3>
+                <p className="mt-1 text-[10px] text-muted-foreground">進化・変化するスキルは同じスキル番号で variantOrder を増やします。</p>
               </div>
+              <button type="button" onClick={() => removeSkill(index)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[10px] font-black text-muted-foreground hover:text-red-600"><Trash2 size={13} />削除</button>
+            </div>
 
-              <div className="space-y-2">
-                {skill.extraEffects.map(
-                  (effect, effectIndex) => (
-                    <div
-                      key={effectIndex}
-                      className="flex gap-2"
-                    >
-                      <input
-                        value={effect}
-                        onChange={(event) =>
-                          updateSkill(index, {
-                            extraEffects:
-                              skill.extraEffects.map(
-                                (
-                                  item,
-                                  itemIndex,
-                                ) =>
-                                  itemIndex ===
-                                  effectIndex
-                                    ? event.target
-                                        .value
-                                    : item,
-                              ),
-                          })
-                        }
-                        className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary"
-                      />
+            <div className="grid gap-4 md:grid-cols-4">
+              <SelectField label="スキル枠" value={skill.skillSlot} onChange={(value) => updateSkill(index, { skillSlot: value as SkillForm["skillSlot"] })} options={["スキル1", "スキル2", "その他"]} />
+              <SelectField label="スキルタイプ" value={skill.skillType} onChange={(value) => updateSkill(index, { skillType: value as SkillType })} options={SKILL_TYPE_OPTIONS} />
+              <Field label="対象キャラ" value={skill.targetCharacter} onChange={(value) => updateSkill(index, { targetCharacter: value })} placeholder="共通 / ルフィ / ロジャー" />
+              <Field label="進化順" type="number" value={skill.variantOrder} onChange={(value) => updateSkill(index, { variantOrder: value })} placeholder="0=通常、1=EV1、2=EV2" />
+            </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateSkill(index, {
-                            extraEffects:
-                              skill.extraEffects.filter(
-                                (
-                                  _,
-                                  itemIndex,
-                                ) =>
-                                  itemIndex !==
-                                  effectIndex,
-                              ),
-                          })
-                        }
-                        className="rounded-md border border-border px-3 text-muted-foreground hover:text-red-600"
-                      >
-                        <X size={14} />
-                      </button>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field label="スキル名" value={skill.name} onChange={(value) => updateSkill(index, { name: value })} placeholder="例：三刀流黒縄大龍巻" />
+              <Field label="スキル画像URL" value={skill.imageUrl} onChange={(value) => updateSkill(index, { imageUrl: value })} placeholder="https://..." />
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-card p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black">段階ごとの情報</h4>
+                  <p className="mt-1 text-[10px] text-muted-foreground">「1段目：スキル威力」「クールタイム」などを分けて登録できます。</p>
+                </div>
+                <button type="button" onClick={() => addStage(index)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold hover:border-primary hover:text-primary"><Plus size={12} />段階追加</button>
+              </div>
+              <div className="space-y-3">
+                {(skill.stages ?? []).map((stage, stageIndex) => (
+                  <div key={stageIndex} className="rounded border border-border bg-background p-3">
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <Field label="段階名" value={stage.label} onChange={(value) => updateStage(index, stageIndex, { label: value })} placeholder="1段目" />
+                      <Field label="威力" type="number" value={stage.power} onChange={(value) => updateStage(index, stageIndex, { power: value })} />
+                      <Field label="CT" type="number" value={stage.cooldown} onChange={(value) => updateStage(index, stageIndex, { cooldown: value })} />
+                      <div className="flex items-end"><button type="button" onClick={() => removeStage(index, stageIndex)} className="w-full rounded border border-border px-2 py-2 text-xs text-muted-foreground hover:text-red-600"><Trash2 size={13} className="mx-auto" /></button></div>
                     </div>
-                  ),
-                )}
+                    <div className="mt-3"><TextArea label="段階の説明" value={stage.effect} onChange={(value) => updateStage(index, stageIndex, { effect: value })} rows={3} placeholder="敵の防御力を無視してダメージを与える、など" /></div>
+                    <div className="mt-3"><TagPicker label="段階の効果タグ" options={SKILL_EFFECT_TAG_OPTIONS} selected={stage.effects} onChange={(values) => updateStage(index, stageIndex, { effects: values })} /></div>
+                  </div>
+                ))}
               </div>
+            </div>
+
+            <div className="mt-4"><TextArea label="スキル全体の説明" value={skill.description} onChange={(value) => updateSkill(index, { description: value })} rows={5} placeholder="スクショのようなスキル説明を入力" /></div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <TagPicker label="スキル効果タグ（複数選択）" options={SKILL_EFFECT_TAG_OPTIONS} selected={skill.effectTags} onChange={(values) => updateSkill(index, { effectTags: values })} />
+              <TagPicker label="状態異常タグ（複数選択）" options={STATUS_AILMENT_OPTIONS} selected={skill.statusAilments} onChange={(values) => updateSkill(index, { statusAilments: values })} />
+            </div>
+
+            {(skill.skillType === "EVスキル" || skill.skillType === "コンボスキル" || skill.skillType === "奪取中カウンタースキル" || skill.variantOrder !== "0") && (
+              <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
+                <h4 className="text-xs font-black text-primary">スキル変化・進化設定</h4>
+                <div className="mt-3 grid gap-4 md:grid-cols-3">
+                  <SelectField label="変化元スキル" value={skill.changeFromSkillIndex} onChange={(value) => updateSkill(index, { changeFromSkillIndex: value })} options={["", ...form.skills.map((_, i) => String(i))]} />
+                  <SelectField label="変化条件" value={skill.changeCondition} onChange={(value) => updateSkill(index, { changeCondition: value as SkillForm["changeCondition"] })} options={["", "一定時間", "コンボ成立時", "奪取中", "条件達成時"]} />
+                  <Field label="変化時間（秒）" type="number" value={skill.changeDuration} onChange={(value) => updateSkill(index, { changeDuration: value })} />
+                </div>
+                <p className="mt-3 text-[10px] leading-5 text-muted-foreground">EVスキル1→EVスキル2のような連続進化は「同じスキル枠」「同じ対象キャラ」「進化順 1→2」で登録します。</p>
+              </div>
+            )}
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black">その他の効果</span><button type="button" onClick={() => addExtraEffect(index)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-black hover:border-primary hover:text-primary"><Plus size={12} />追加</button></div>
+              <div className="space-y-2">{skill.extraEffects.map((effect, effectIndex) => (
+                <div key={effectIndex} className="flex gap-2"><input value={effect} onChange={(event) => updateSkill(index, { extraEffects: skill.extraEffects.map((item, i) => i === effectIndex ? event.target.value : item) })} className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary" /><button type="button" onClick={() => updateSkill(index, { extraEffects: skill.extraEffects.filter((_, i) => i !== effectIndex) })} className="rounded-md border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
+              ))}</div>
             </div>
           </div>
         ))}
@@ -1256,122 +1122,41 @@ function TraitsEditor({
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
 }) {
-  function updateTrait(
-    index: number,
-    patch: Partial<TraitForm>,
-  ) {
-    setForm((current) => ({
-      ...current,
-      traits: current.traits.map(
-        (trait, traitIndex) =>
-          traitIndex === index
-            ? { ...trait, ...patch }
-            : trait,
-      ),
-    }));
+  function updateTrait(index: number, patch: Partial<TraitForm>) {
+    setForm((current) => ({ ...current, traits: current.traits.map((trait, i) => i === index ? { ...trait, ...patch } : trait) }));
   }
-
+  function addEffect(index: number) {
+    const effects = form.traits[index]?.effects ?? [];
+    updateTrait(index, { effects: [...effects, ""] });
+  }
+  function updateEffect(index: number, effectIndex: number, value: string) {
+    const effects = form.traits[index]?.effects ?? [];
+    updateTrait(index, { effects: effects.map((item, i) => i === effectIndex ? value : item) });
+  }
+  function removeEffect(index: number, effectIndex: number) {
+    const effects = form.traits[index]?.effects ?? [];
+    updateTrait(index, { effects: effects.filter((_, i) => i !== effectIndex) });
+  }
   return (
     <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-black">
-            特性
-          </h2>
-
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            特性は何個でも登録できます。
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            setForm((current) => ({
-              ...current,
-              traits: [
-                ...current.traits,
-                emptyTrait(),
-              ],
-            }))
-          }
-          className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-xs font-black hover:border-primary hover:text-primary"
-        >
-          <Plus size={14} />
-          特性追加
-        </button>
+      <div className="mb-5 flex items-center justify-between">
+        <div><h2 className="text-base font-black">特性</h2><p className="mt-1 text-[11px] text-muted-foreground">スクショの見出し構造をそのまま登録。ダブルキャラは対象キャラごとに何個でも追加できます。</p></div>
+        <button type="button" onClick={() => setForm((current) => ({ ...current, traits: [...current.traits, emptyTrait()] }))} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-white"><Plus size={14} />特性追加</button>
       </div>
-
-      <div className="space-y-3">
+      <div className="space-y-4">
         {form.traits.map((trait, index) => (
-          <div
-            key={index}
-            className="grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-[180px_180px_180px_1fr_auto]"
-          >
-            <SelectField
-              label="特性枠"
-              value={trait.slot}
-              onChange={(value) =>
-                updateTrait(index, {
-                  slot:
-                    value as TraitSlot,
-                })
-              }
-              options={
-                TRAIT_SLOT_OPTIONS
-              }
-            />
-
-            <Field
-              label="対象キャラ"
-              value={trait.target}
-              onChange={(value) =>
-                updateTrait(index, {
-                  target: value,
-                })
-              }
-              placeholder="共通 / ルフィ / ロジャー"
-            />
-
-            <Field
-              label="特性名"
-              value={trait.traitName}
-              onChange={(value) =>
-                updateTrait(index, {
-                  traitName: value,
-                })
-              }
-              placeholder="キャラ特性1 / キャラ特性2"
-            />
-
-            <TextArea
-              label="効果"
-              value={trait.effect}
-              onChange={(value) =>
-                updateTrait(index, {
-                  effect: value,
-                })
-              }
-              rows={3}
-              placeholder="特性の効果"
-            />
-
-            <button
-              type="button"
-              onClick={() =>
-                setForm((current) => ({
-                  ...current,
-                  traits:
-                    current.traits.filter(
-                      (_, traitIndex) =>
-                        traitIndex !== index,
-                    ),
-                }))
-              }
-              className="self-end rounded-md border border-border p-2 text-muted-foreground hover:text-red-600"
-            >
-              <Trash2 size={14} />
-            </button>
+          <div key={index} className="rounded-lg border border-border bg-background p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <SelectField label="特性枠" value={trait.slot} onChange={(value) => updateTrait(index, { slot: value as TraitSlot })} options={TRAIT_SLOT_OPTIONS} />
+              <Field label="対象キャラ" value={trait.target} onChange={(value) => updateTrait(index, { target: value })} placeholder="共通 / キャラA / キャラB" />
+              <div className="flex gap-2"><div className="min-w-0 flex-1"><Field label="特性名" value={trait.traitName} onChange={(value) => updateTrait(index, { traitName: value })} placeholder="キャラ特性2 / アタッカー特性" /></div><button type="button" onClick={() => setForm((current) => ({ ...current, traits: current.traits.filter((_, i) => i !== index) }))} className="mt-7 rounded border border-border px-3 text-muted-foreground hover:text-red-600"><Trash2 size={14} /></button></div>
+            </div>
+            <div className="mt-4 rounded-md border border-border bg-card p-3">
+              <div className="mb-3 flex items-center justify-between"><span className="text-xs font-black">効果</span><button type="button" onClick={() => addEffect(index)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold hover:border-primary hover:text-primary"><Plus size={12} />効果追加</button></div>
+              <div className="space-y-2">{trait.effects.map((effect, effectIndex) => (
+                <div key={effectIndex} className="flex gap-2"><TextArea label={`効果${effectIndex + 1}`} value={effect} onChange={(value) => updateEffect(index, effectIndex, value)} rows={3} placeholder="例：敵を無視してお宝を奪取できる" /><button type="button" onClick={() => removeEffect(index, effectIndex)} className="mt-7 h-10 rounded border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
+              ))}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -1924,81 +1709,36 @@ export default function AdminCharactersPage() {
   }
 
   function buildSkills() {
-    return form.skills.map(
-      (skill) => ({
-        skillType:
-          skill.skillType,
-
-        name:
-          skill.name.trim(),
-
-        description:
-          skill.description.trim(),
-
-        power: toNumber(
-          skill.power,
-          "スキル威力",
-        ),
-
-        cooldown: toNumber(
-          skill.cooldown,
-          "クールタイム",
-        ),
-
-        effectTags:
-          skill.effectTags,
-
-        statusAilments:
-          skill.statusAilments,
-
-        /*
-         * 旧データとの互換性用。
-         */
-        defenseIgnore:
-          skill.effectTags.includes(
-            "防御力無視",
-          ),
-
-        damageReductionIgnore:
-          skill.effectTags.includes(
-            "ダメージ減少無視",
-          ),
-
-        statusAilment:
-          skill.statusAilments
-            .join("、") || undefined,
-
-        duration: toNumber(
-          skill.duration,
-          "効果時間",
-        ),
-
-        extraEffects:
-          skill.extraEffects
-            .map((value) =>
-              value.trim(),
-            )
-            .filter(Boolean),
-
-        changeFromSkillIndex:
-          skill.changeFromSkillIndex.trim() === ""
-            ? undefined
-            : toNumber(
-                skill.changeFromSkillIndex,
-                "変化元スキル",
-                true,
-              ),
-
-        changeCondition:
-          skill.changeCondition || undefined,
-
-        changeDuration:
-          toNumber(
-            skill.changeDuration,
-            "変化後効果時間",
-          ),
-      }),
-    );
+    return form.skills
+      .filter((skill) => skill.name.trim())
+      .map((skill) => ({
+        skillSlot: skill.skillSlot,
+        targetCharacter: skill.targetCharacter.trim() || "共通",
+        variantOrder: toNumber(skill.variantOrder, "進化順", true) ?? 0,
+        imageUrl: skill.imageUrl.trim() || undefined,
+        stages: (skill.stages ?? []).map((stage) => ({
+          label: stage.label.trim() || undefined,
+          power: toNumber(stage.power, "段階威力"),
+          cooldown: toNumber(stage.cooldown, "段階クールタイム"),
+          effect: stage.effect.trim() || undefined,
+          effects: stage.effects,
+        })),
+        skillType: skill.skillType,
+        name: skill.name.trim(),
+        description: skill.description.trim() || "詳細説明なし",
+        power: toNumber(skill.power, "スキル威力"),
+        cooldown: toNumber(skill.cooldown, "クールタイム"),
+        effectTags: skill.effectTags,
+        statusAilments: skill.statusAilments,
+        defenseIgnore: skill.effectTags.includes("防御力無視"),
+        damageReductionIgnore: skill.effectTags.includes("ダメージ減少無視"),
+        statusAilment: skill.statusAilments.join("、") || undefined,
+        duration: toNumber(skill.duration, "効果時間"),
+        extraEffects: skill.extraEffects.map((value) => value.trim()).filter(Boolean),
+        changeFromSkillIndex: skill.changeFromSkillIndex.trim() === "" ? undefined : toNumber(skill.changeFromSkillIndex, "変化元スキル", true),
+        changeCondition: skill.changeCondition || undefined,
+        changeDuration: toNumber(skill.changeDuration, "変化後効果時間"),
+      }));
   }
 
   async function submit(
@@ -2028,22 +1768,19 @@ export default function AdminCharactersPage() {
       const skills =
         buildSkills();
 
-      const traits =
-        form.traits
-          .filter(
-            (trait) =>
-              trait.effect.trim(),
-          )
-          .map((trait) => ({
-            slot: trait.slot,
-            target: trait.target.trim() || "共通",
-            traitName: trait.traitName.trim(),
-            /*
-             * 旧データとの互換性のためnameにも特性名を入れる。
-             */
-            name: trait.traitName.trim() || trait.slot,
-            effect: trait.effect.trim(),
-          }));
+      const traits = form.traits
+        .map((trait) => ({
+          slot: trait.slot,
+          target: trait.target.trim() || "共通",
+          traitName: trait.traitName.trim(),
+          name: trait.traitName.trim() || trait.slot,
+          effects: trait.effects.map((value) => value.trim()).filter(Boolean),
+        }))
+        .filter((trait) => trait.effects.length > 0)
+        .map((trait) => ({
+          ...trait,
+          effect: trait.effects[0] ?? "",
+        }));
 
       const characterTypes =
         form.characterTypes
@@ -2068,8 +1805,11 @@ export default function AdminCharactersPage() {
         description:
           form.description.trim(),
 
-        tags:
-          form.tags,
+        tags: form.tags,
+
+        doubleCharacters: form.doubleCharacters
+          .map((value) => value.trim())
+          .filter(Boolean),
 
         attribute: {
           base:
@@ -2707,6 +2447,16 @@ export default function AdminCharactersPage() {
                   )
                 }
               />
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div><span className="text-xs font-black">ダブルキャラ</span><p className="mt-1 text-[10px] text-muted-foreground">2人以上のキャラ名を登録すると、スキル・特性の対象キャラ選択に使えます。</p></div>
+                <button type="button" onClick={() => setForm((current) => ({ ...current, doubleCharacters: [...current.doubleCharacters, ""] }))} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[10px] font-bold"><Plus size={12} />追加</button>
+              </div>
+              <div className="space-y-2">{form.doubleCharacters.map((value, index) => (
+                <div key={index} className="flex gap-2"><input value={value} onChange={(event) => setForm((current) => ({ ...current, doubleCharacters: current.doubleCharacters.map((item, i) => i === index ? event.target.value : item) }))} placeholder={`キャラクター${index + 1}`} className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary" /><button type="button" onClick={() => setForm((current) => ({ ...current, doubleCharacters: current.doubleCharacters.filter((_, i) => i !== index) }))} className="rounded border border-border px-3 text-muted-foreground hover:text-red-600"><X size={14} /></button></div>
+              ))}</div>
             </div>
 
             <div className="mt-5">

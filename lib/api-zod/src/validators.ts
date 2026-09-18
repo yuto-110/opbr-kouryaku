@@ -309,7 +309,20 @@ export const StatusAilmentSchema =
     STATUS_AILMENT_OPTIONS,
   );
 
+export const SkillStageSchema = z.object({
+  label: z.string().max(200).optional(),
+  power: z.number().min(0).optional(),
+  cooldown: z.number().min(0).optional(),
+  effect: z.string().max(5000).optional(),
+  effects: z.array(z.string().max(5000)).default([]),
+});
+
 export const SkillSchema = z.object({
+  skillSlot: z.enum(["スキル1", "スキル2", "その他"]).default("その他"),
+  targetCharacter: z.string().max(200).default("共通"),
+  variantOrder: z.number().int().min(0).default(0),
+  imageUrl: z.string().url().optional(),
+  stages: z.array(SkillStageSchema).default([]),
   skillType:
     SkillTypeSchema.default("通常"),
 
@@ -412,7 +425,8 @@ export const TraitSchema = z.object({
   target: z.string().max(200).default("共通"),
   traitName: z.string().max(200).default(""),
   name: z.string().max(200).default(""),
-  effect: z.string().min(1).max(5000),
+  effect: z.string().max(5000).default(""),
+  effects: z.array(z.string().max(5000)).default([]),
 });
 
 export const TraitsSchema = z
@@ -524,6 +538,8 @@ export const CreateCharacterSchema =
     tags:
       CharacterTagsSchema,
 
+    doubleCharacters: z.array(z.string().max(200)).default([]),
+
     /*
      * 管理画面では入力しない。
      * 既存APIとの互換性のためschemaには残す。
@@ -630,6 +646,8 @@ export const CharacterResponseSchema =
 
     tags:
       z.array(z.string()),
+
+    doubleCharacters: z.array(z.string()),
 
     implementedAt:
       z.date().optional(),

@@ -60,7 +60,7 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { characterId } = req.body;
+      const characterId = String(req.body?.characterId ?? "").trim().toLowerCase();
 
       if (
         typeof characterId !== 'string' ||
@@ -145,7 +145,7 @@ router.put(
   requireAuth,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const characterId = req.params.characterId;
+      const characterId = String(req.params.characterId ?? "").trim().toLowerCase();
       const { stars, level, boostLevel } = req.body;
 
       if (
@@ -269,7 +269,7 @@ router.delete(
   requireAuth,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const characterId = req.params.characterId;
+      const characterId = String(req.params.characterId ?? "").trim().toLowerCase();
 
       await connectDB();
 

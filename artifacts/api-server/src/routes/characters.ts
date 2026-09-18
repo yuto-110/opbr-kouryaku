@@ -73,14 +73,20 @@ function getValidationDetails(
 
   return (
     issues?.map((issue) => ({
-      path:
-        issue.path?.map(String) ??
-        [],
-      message:
-        issue.message ??
-        "入力値が不正です",
+      path: issue.path?.map(String) ?? [],
+      message: issue.message ?? "入力値が不正です",
     })) ?? []
   );
+}
+
+function getMongooseValidationDetails(error: unknown) {
+  if (!(error && typeof error === "object" && "errors" in error)) return [];
+  const errors = (error as { errors?: Record<string, { message?: string }> }).errors;
+  if (!errors) return [];
+  return Object.entries(errors).map(([path, value]) => ({
+    path: path.split("."),
+    message: value?.message ?? "入力値が不正です",
+  }));
 }
 
 /* ============================================================
@@ -125,7 +131,7 @@ router.get(
 
       const character =
         await Character.findOne({
-          id: req.params.id,
+          id: String(req.params.id ?? "").trim().toLowerCase(),
         }).lean();
 
       if (!character) {
@@ -201,21 +207,21 @@ router.post(
         .json(character);
     } catch (error) {
       const details =
-        getValidationDetails(
-          error,
-        );
+        getValidationDetails(error);
+      const validationDetails =
+        details.length > 0 ? details : getMongooseValidationDetails(error);
 
-      if (details.length > 0) {
+      if (validationDetails.length > 0) {
         console.error(
           "Character validation error:",
-          details,
+          validationDetails,
         );
 
         return res.status(400).json({
           code: "INVALID_REQUEST",
           message:
             "入力内容が正しくありません",
-          details,
+          details: validationDetails,
         });
       }
 
@@ -253,7 +259,7 @@ router.put(
       const character =
         await Character.findOneAndUpdate(
           {
-            id: req.params.id,
+            id: String(req.params.id ?? "").trim().toLowerCase(),
           },
           {
             $set: input,
@@ -277,21 +283,21 @@ router.put(
       );
     } catch (error) {
       const details =
-        getValidationDetails(
-          error,
-        );
+        getValidationDetails(error);
+      const validationDetails =
+        details.length > 0 ? details : getMongooseValidationDetails(error);
 
-      if (details.length > 0) {
+      if (validationDetails.length > 0) {
         console.error(
           "Character validation error:",
-          details,
+          validationDetails,
         );
 
         return res.status(400).json({
           code: "INVALID_REQUEST",
           message:
             "入力内容が正しくありません",
-          details,
+          details: validationDetails,
         });
       }
 
@@ -323,7 +329,7 @@ router.delete(
 
       const result =
         await Character.deleteOne({
-          id: req.params.id,
+          id: String(req.params.id ?? "").trim().toLowerCase(),
         });
 
       if (
