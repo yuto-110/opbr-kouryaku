@@ -2917,28 +2917,107 @@ export default function AdminCharactersPage() {
     setImageFile(file);
   }
 
-  function handleSkillImageChange(
-    index: number,
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file =
-      event.target.files?.[0] ?? null;
+  async function handleSkillImageChange(
+  index: number,
+  event: ChangeEvent<HTMLInputElement>,
+) {
+  const file = event.target.files?.[0] ?? null;
+
+  if (!file) {
+    return;
+  }
+
+  setError("");
+  setMessage("");
+
+  setForm((current) => ({
+    ...current,
+    skills: current.skills.map((skill, skillIndex) =>
+      skillIndex === index
+        ? {
+            ...skill,
+            imageFile: file,
+          }
+        : skill,
+    ),
+  }));
+
+  try {
+    const skill = form.skills[index];
+
+    if (!skill) {
+      throw new Error("スキル情報が見つかりません。");
+    }
+
+    const ext = file.name.includes(".")
+      ? file.name
+          .slice(file.name.lastIndexOf("."))
+          .toLowerCase()
+      : ".webp";
+
+    const variantOrder =
+      toNumber(
+        skill.variantOrder,
+        "進化順",
+        true,
+      ) ?? 0;
+
+    const filename = `${
+      editingId || "pending"
+    }-skill-${index + 1}-${variantOrder}${ext}`;
+
+    const publicUrl = await uploadImageFile(
+      file,
+      "skills",
+      filename,
+    );
+
+    if (!publicUrl) {
+      throw new Error(
+        "画像URLを取得できませんでした。",
+      );
+    }
 
     setForm((current) => ({
       ...current,
-      skills:
-        current.skills.map(
-          (skill, skillIndex) =>
-            skillIndex === index
-              ? {
-                  ...skill,
-                  imageFile:
-                    file,
-                }
-              : skill,
-        ),
+      skills: current.skills.map(
+        (item, skillIndex) =>
+          skillIndex === index
+            ? {
+                ...item,
+                imageFile: null,
+                imageUrl: publicUrl,
+              }
+            : item,
+      ),
     }));
+
+    setMessage(
+      `スキルアイコンをアップロードしました。`,
+    );
+  } catch (e) {
+    setForm((current) => ({
+      ...current,
+      skills: current.skills.map(
+        (item, skillIndex) =>
+          skillIndex === index
+            ? {
+                ...item,
+                imageFile: null,
+              }
+            : item,
+      ),
+    }));
+
+    setError(
+      e instanceof Error
+        ? e.message
+        : "スキルアイコンのアップロードに失敗しました。",
+    );
+  } finally {
+    setUploading(false);
   }
+}
 
   return (
     <GuideShell>

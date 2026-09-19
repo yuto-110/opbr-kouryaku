@@ -19,6 +19,7 @@ const allowedFolders = [
   "medals",
   "team-boost",
   "skills",
+  "character-icons",
 ] as const;
 
 const allowedContentTypes = [
@@ -92,7 +93,7 @@ router.post(
         return res.status(400).json({
           error: "INVALID_FOLDER",
           message:
-            "folderはcharacters、medals、team-boost、skillsのいずれかです",
+            "folderはcharacters、medals、team-boost、skills、character-iconsのいずれかです",
         });
       }
 

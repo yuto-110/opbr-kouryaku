@@ -152,6 +152,7 @@ export interface ICharacter extends Document {
 
   tier: CharacterTier;
   imageUrl?: string;
+  characterIconUrl?: string;
 
   strengths: string[];
   weaknesses: string[];
@@ -346,6 +347,7 @@ const characterSchema = new Schema<ICharacter>(
       required: true,
     },
     imageUrl: { type: String },
+    characterIconUrl: { type: String },
     strengths: { type: [String], default: [] },
     weaknesses: { type: [String], default: [] },
     recommendedMedals: { type: [String], default: [] },

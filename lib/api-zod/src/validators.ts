@@ -596,6 +596,12 @@ export const CreateCharacterSchema =
         .url()
         .optional(),
 
+    characterIconUrl:
+      z
+        .string()
+        .url()
+        .optional(),
+
     strengths:
       z
         .array(

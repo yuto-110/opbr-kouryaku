@@ -19,6 +19,14 @@ const API_BASE_URL =
 
 const TOKEN_KEY = "opbr_access_token";
 
+type CharacterTagMaster = {
+  id: string;
+  name: string;
+  supportCategory?: string;
+  supportEffect?: string;
+  levels?: Array<{ level: number; totalLevel: number; effect: string }>;
+};
+
 type Character = {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ type Character = {
   initialStars: number;
   tier: string;
   imageUrl?: string;
+  characterIconUrl?: string;
   stats: {
     levelStats: Array<{
       level: number;
@@ -366,6 +375,8 @@ export default function CharacterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [character, setCharacter] = useState<Character | null>(null);
   const [allCharacters, setAllCharacters] = useState<Character[]>([]);
+  const [tagMasters, setTagMasters] = useState<CharacterTagMaster[]>([]);
+  const [selectedTag, setSelectedTag] = useState<CharacterTagMaster | null>(null);
   const [loading, setLoading] = useState(true);
   const [owned, setOwned] = useState(false);
   const [favorite, setFavorite] = useState(false);
@@ -375,9 +386,10 @@ export default function CharacterDetailPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [detailResponse, allResponse] = await Promise.all([
+        const [detailResponse, allResponse, tagResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/characters/${encodeURIComponent(id ?? "")}`),
           fetch(`${API_BASE_URL}/characters`),
+          fetch(`${API_BASE_URL}/character-tags`),
         ]);
 
         if (!detailResponse.ok) {
@@ -414,6 +426,10 @@ export default function CharacterDetailPage() {
 
         if (allResponse.ok) {
           setAllCharacters((await allResponse.json()) as Character[]);
+        }
+
+        if (tagResponse.ok) {
+          setTagMasters((await tagResponse.json()) as CharacterTagMaster[]);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "読み込みに失敗しました");
@@ -453,6 +469,19 @@ export default function CharacterDetailPage() {
     ? [...levelStats].sort((a, b) => b.level - a.level)[0]
     : null;
 
+  const getRank = (
+    field: "totalPower" | "hp" | "attack" | "defense",
+    value: number,
+  ) => {
+    const higher = allCharacters.filter((item) => {
+      const stats = [...(item.stats?.levelStats ?? [])].sort(
+        (a, b) => b.level - a.level,
+      )[0];
+      return typeof stats?.[field] === "number" && stats[field] > value;
+    }).length;
+    return `${higher + 1}位/${allCharacters.length}`;
+  };
+
   return (
     <GuideShell>
       <div className="animate-enter">
@@ -464,11 +493,18 @@ export default function CharacterDetailPage() {
           <div>
             <section className="rounded-md border border-card-border bg-card shadow-card">
               <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-end">
-                <div className="h-[190px] w-[145px] shrink-0 overflow-hidden rounded-md bg-secondary">
+                <div className="relative aspect-square w-[190px] max-w-full shrink-0 overflow-hidden rounded-md bg-secondary">
                   {character.imageUrl ? (
                     <img src={character.imageUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full place-items-center text-xs font-black text-muted-foreground">NO IMAGE</div>
+                  )}
+                  {character.characterIconUrl && (
+                    <img
+                      src={character.characterIconUrl}
+                      alt=""
+                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
+                    />
                   )}
                 </div>
 
@@ -600,10 +636,10 @@ export default function CharacterDetailPage() {
                 <>
                   {latestStats ? (
                     <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                      {statRow("Lv" + latestStats.level + " 総合力", latestStats.totalPower)}
-                      {statRow("HP", latestStats.hp)}
-                      {statRow("攻撃", latestStats.attack)}
-                      {statRow("防御", latestStats.defense)}
+                      {statRow("Lv" + latestStats.level + " 総合力 " + getRank("totalPower", latestStats.totalPower), latestStats.totalPower)}
+                      {statRow("体力 " + getRank("hp", latestStats.hp), latestStats.hp)}
+                      {statRow("攻撃 " + getRank("attack", latestStats.attack), latestStats.attack)}
+                      {statRow("防御 " + getRank("defense", latestStats.defense), latestStats.defense)}
                       {statRow("クリティカル", latestStats.critical)}
                     </div>
                   ) : null}
@@ -612,7 +648,7 @@ export default function CharacterDetailPage() {
                       <div className="mb-3 text-xs font-black text-primary">Lv100超過ブースト最大時</div>
                       <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
                         {statRow("総合力", overboostStats.totalPower)}
-                        {statRow("HP", overboostStats.hp)}
+                        {statRow("体力", overboostStats.hp)}
                         {statRow("攻撃", overboostStats.attack)}
                         {statRow("防御", overboostStats.defense)}
                         {statRow("クリティカル", overboostStats.critical)}
@@ -631,7 +667,7 @@ export default function CharacterDetailPage() {
                       <tr className="border-b border-border text-muted-foreground">
                         <th className="py-2">Lv</th>
                         <th className="py-2">総合力</th>
-                        <th className="py-2">HP</th>
+                        <th className="py-2">体力</th>
                         <th className="py-2">攻撃</th>
                         <th className="py-2">防御</th>
                         <th className="py-2">クリティカル</th>
@@ -659,7 +695,22 @@ export default function CharacterDetailPage() {
                 <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">タグ</h2>
                 <div className="flex flex-wrap gap-2">
                   {(character.tags ?? []).map((tag) => (
-                    <span key={tag} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{tag}</span>
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTag(
+                        tagMasters.find((item) => item.name === tag) ?? {
+                          id: `missing-${tag}`,
+                          name: tag,
+                          supportCategory: "未登録",
+                          supportEffect: "このタグの詳細はまだ登録されていません。",
+                          levels: [],
+                        },
+                      )}
+                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20"
+                    >
+                      {tag}
+                    </button>
                   ))}
                 </div>
               </section>
@@ -756,6 +807,52 @@ export default function CharacterDetailPage() {
           </aside>
         </div>
       </div>
+
+      {selectedTag && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          onClick={() => setSelectedTag(null)}
+        >
+          <div
+            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-lg border border-card-border bg-card p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="data-label mb-1">CHARACTER TAG</div>
+                <h2 className="text-xl font-black">{selectedTag.name}</h2>
+              </div>
+              <button type="button" onClick={() => setSelectedTag(null)}
+                className="rounded-md border border-border px-3 py-1 text-xs font-bold">閉じる</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <div className="mb-1 text-xs font-black text-muted-foreground">サポートカテゴリ</div>
+                <p className="text-sm">{selectedTag.supportCategory || "未登録"}</p>
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-black text-muted-foreground">サポート効果</div>
+                <p className="whitespace-pre-line text-sm leading-6">{selectedTag.supportEffect || "未登録"}</p>
+              </div>
+              {(selectedTag.levels ?? []).length > 0 && (
+                <div>
+                  <div className="mb-2 text-xs font-black text-muted-foreground">タグLv</div>
+                  <div className="overflow-hidden rounded-md border border-border">
+                    {(selectedTag.levels ?? []).map((level) => (
+                      <div key={level.level} className="grid grid-cols-[64px_100px_1fr] gap-2 border-b border-border p-3 text-xs last:border-b-0">
+                        <span className="font-black">Lv{level.level}</span>
+                        <span className="font-data">累計Lv{level.totalLevel}</span>
+                        <span>{level.effect || "未登録"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </GuideShell>
   );
 }

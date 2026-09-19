@@ -18,8 +18,8 @@ export function GuideShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur-sm lg:hidden">
-        <div className="flex h-16 items-center justify-between px-4">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-sm lg:hidden">
+        <div className="flex h-16 w-full items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2" data-testid="link-mobile-logo">
             <BrandMark small />
             <span className="text-sm font-black tracking-[.12em]">覇道データベース</span>
@@ -68,9 +68,11 @@ export function GuideShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-h-[100dvh] lg:pl-[238px]">
+      <main className="min-h-[100dvh] min-w-0 overflow-x-hidden lg:pl-[238px]">
         <Topbar />
-        <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</div>
+        <div className="mx-auto w-full max-w-[1440px] min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+           {children}
+        </div>
       </main>
     </div>
   );
