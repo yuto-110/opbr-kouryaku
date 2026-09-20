@@ -41,7 +41,7 @@ function CharacterCard({ character }: { character: Character }) {
       href={`/characters/${character.id}`}
       className="group flex overflow-hidden rounded-md border border-card-border bg-card shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
     >
-      <div className="relative h-[132px] w-[96px] shrink-0 bg-secondary">
+      <div className="relative aspect-square w-[132px] shrink-0 bg-secondary">
         {character.imageUrl ? (
           <img src={character.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (

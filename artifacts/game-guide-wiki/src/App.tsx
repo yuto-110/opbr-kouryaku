@@ -113,6 +113,11 @@ function Router() {
           component={AdminCharacterTagsPage}
         />
 
+        <Route
+          path="/admin/character-icons"
+          component={AdminCharacterIconsPage}
+        />
+
         <Route component={NotFound} />
 
       </Switch>

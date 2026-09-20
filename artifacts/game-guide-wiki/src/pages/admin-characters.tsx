@@ -270,11 +270,19 @@ type Character = {
 
   tier: string;
   imageUrl?: string;
+  characterIconUrl?: string;
 
   strengths?: string[];
   weaknesses?: string[];
   recommendedMedals?: string[];
   relatedCharacters?: string[];
+};
+
+type CharacterIconMaster = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  active: boolean;
 };
 
 type CharacterTagMaster = {
@@ -348,6 +356,7 @@ type FormState = {
   tier: string;
 
   imageUrl: string;
+  characterIconUrl: string;
 
   stats: StatRow[];
   overboostEnabled: boolean;
@@ -439,6 +448,7 @@ function makeForm(character?: Character): FormState {
     tier: character?.tier ?? "評価中",
 
     imageUrl: character?.imageUrl ?? "",
+    characterIconUrl: character?.characterIconUrl ?? "",
 
     stats:
       character?.stats?.levelStats?.map((stat) => ({
@@ -1906,6 +1916,11 @@ export default function AdminCharactersPage() {
     setCharacterTagMasters,
   ] = useState<CharacterTagMaster[]>([]);
 
+  const [
+    characterIconMasters,
+    setCharacterIconMasters,
+  ] = useState<CharacterIconMaster[]>([]);
+
   const [form, setForm] =
     useState<FormState>(() =>
       makeForm(),
@@ -2025,6 +2040,22 @@ export default function AdminCharactersPage() {
       if (tagResponse.ok) {
         setCharacterTagMasters(
           (await tagResponse.json()) as CharacterTagMaster[],
+        );
+      }
+
+      const iconResponse =
+        await fetch(
+          `${API_BASE_URL}/admin/character-icons`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+      if (iconResponse.ok) {
+        setCharacterIconMasters(
+          (await iconResponse.json()) as CharacterIconMaster[],
         );
       }
     } catch (e) {
@@ -2590,6 +2621,10 @@ export default function AdminCharactersPage() {
           form.imageUrl.trim() ||
           undefined,
 
+        characterIconUrl:
+          form.characterIconUrl.trim() ||
+          undefined,
+
         strengths:
           form.strengths
             .map((value) =>
@@ -3131,10 +3166,10 @@ export default function AdminCharactersPage() {
                             character.imageUrl
                           }
                           alt=""
-                          className="h-12 w-10 rounded object-cover"
+                          className="h-12 w-12 rounded object-cover"
                         />
                       ) : (
-                        <div className="grid h-12 w-10 place-items-center rounded bg-secondary text-[9px] font-black text-muted-foreground">
+                        <div className="grid h-12 w-12 place-items-center rounded bg-secondary text-[9px] font-black text-muted-foreground">
                           NO IMAGE
                         </div>
                       )}
@@ -3559,6 +3594,44 @@ export default function AdminCharactersPage() {
                 }
                 placeholder="https://..."
               />
+            </div>
+
+            <div className="mt-5">
+              <label className="block">
+                <span className="mb-2 block text-xs font-black">
+                  キャラクターアイコン（マスターから選択）
+                </span>
+                <select
+                  value={form.characterIconUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      characterIconUrl: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">アイコンなし</option>
+                  {characterIconMasters.map((icon) => (
+                    <option key={icon.id} value={icon.imageUrl}>
+                      {icon.name}
+                    </option>
+                  ))}
+                </select>
+                {form.characterIconUrl && (
+                  <div className="mt-3 flex items-center gap-3 rounded-md border border-border bg-background p-3">
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-md bg-secondary">
+                      <img src={form.characterIconUrl} alt="" className="h-full w-full object-contain" />
+                    </div>
+                    <p className="text-[10px] leading-5 text-muted-foreground">
+                      透明部分を含む1枚の合成画像をそのまま表示します。
+                    </p>
+                  </div>
+                )}
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  アイコンの登録・編集は「管理画面 → キャラクターアイコン管理」から行います。
+                </p>
+              </label>
             </div>
           </section>
 

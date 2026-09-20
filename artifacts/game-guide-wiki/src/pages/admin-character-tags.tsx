@@ -569,7 +569,7 @@ export default function AdminCharacterTagsPage() {
                     </div>
 
                     {tag.supportEffect && (
-                      <p className="mt-2 rounded bg-primary/5 p-2 text-xs leading-5">
+                      <p className="mt-2 whitespace-pre-line rounded bg-primary/5 p-2 text-xs leading-5">
                         <b>サポート効果：</b>
                         {tag.supportEffect}
                       </p>
