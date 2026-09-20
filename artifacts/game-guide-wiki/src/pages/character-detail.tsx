@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
-import { CharacterTagHexList, HEXAGON_CLIP_PATH } from "@/components/character-tag-hex-list";
+import { CharacterTagHexList } from "@/components/character-tag-hex-list";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -480,7 +480,7 @@ export default function CharacterDetailPage() {
       )[0];
       return typeof stats?.[field] === "number" && stats[field] > value;
     }).length;
-    return `${higher + 1}位/${allCharacters.length}`;
+    return `全体で${higher + 1}位/${allCharacters.length}`;
   };
 
   return (
@@ -516,16 +516,11 @@ export default function CharacterDetailPage() {
                     }
                   />
                   {character.characterIconUrl && (
-                    <div
-                      className="absolute right-2 top-2 z-10 h-14 w-14 overflow-hidden bg-transparent"
-                      style={{ clipPath: HEXAGON_CLIP_PATH }}
-                    >
-                      <img
-                        src={character.characterIconUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
+                    <img
+                      src={character.characterIconUrl}
+                      alt=""
+                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
+                    />
                   )}
                 </div>
 
@@ -711,6 +706,34 @@ export default function CharacterDetailPage() {
               )}
             </section>
 
+            {(character.tags ?? []).length > 0 && (
+              <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
+                <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">キャラタグ</h2>
+                <div className="flex flex-wrap gap-2">
+                  {(character.tags ?? []).map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() =>
+                        setSelectedTag(
+                          tagMasters.find((item) => item.name === tag) ?? {
+                            id: `missing-${tag}`,
+                            name: tag,
+                            supportCategory: "未登録",
+                            supportEffect: "このタグの詳細はまだ登録されていません。",
+                            levels: [],
+                          },
+                        )
+                      }
+                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {(character.skills ?? []).length > 0 && (
               <section className="mt-6">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground"><Zap size={16} /> スキル</h2>
@@ -815,7 +838,7 @@ export default function CharacterDetailPage() {
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <div className="data-label mb-1">CHARACTER TAG</div>
-                <h2 className="text-xl font-black">{selectedTag.name}</h2>
+                <h2 className="break-words text-xl font-black leading-tight">{selectedTag.name}</h2>
               </div>
               <button type="button" onClick={() => setSelectedTag(null)}
                 className="rounded-md border border-border px-3 py-1 text-xs font-bold">閉じる</button>
@@ -823,21 +846,21 @@ export default function CharacterDetailPage() {
             <div className="space-y-4">
               <div>
                 <div className="mb-1 text-xs font-black text-muted-foreground">サポートカテゴリ</div>
-                <p className="text-sm">{selectedTag.supportCategory || "未登録"}</p>
+                <p className="break-words text-sm">{selectedTag.supportCategory || "未登録"}</p>
               </div>
               <div>
                 <div className="mb-1 text-xs font-black text-muted-foreground">サポート効果</div>
-                <p className="whitespace-pre-line text-sm leading-6">{selectedTag.supportEffect || "未登録"}</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6">{selectedTag.supportEffect || "未登録"}</p>
               </div>
               {(selectedTag.levels ?? []).length > 0 && (
                 <div>
                   <div className="mb-2 text-xs font-black text-muted-foreground">タグLv</div>
                   <div className="overflow-hidden rounded-md border border-border">
                     {(selectedTag.levels ?? []).map((level) => (
-                      <div key={level.level} className="grid grid-cols-[64px_100px_1fr] gap-2 border-b border-border p-3 text-xs last:border-b-0">
+                      <div key={level.level} className="grid gap-2 border-b border-border p-3 text-xs last:border-b-0 sm:grid-cols-[64px_100px_minmax(0,1fr)]">
                         <span className="font-black">Lv{level.level}</span>
                         <span className="font-data">累計Lv{level.totalLevel}</span>
-                        <span>{level.effect || "未登録"}</span>
+                        <span className="min-w-0 break-words">{level.effect || "未登録"}</span>
                       </div>
                     ))}
                   </div>
