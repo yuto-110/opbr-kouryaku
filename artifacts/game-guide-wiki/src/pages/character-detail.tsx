@@ -472,15 +472,21 @@ export default function CharacterDetailPage() {
   const latestStats = levelStats.length
     ? [...levelStats].sort((a, b) => b.level - a.level)[0]
     : null;
+  const displayStats = latestStats ?? overboostStats;
+
+  const getFinalStats = (item: Character) => {
+    const stats = item.stats?.levelStats ?? [];
+    return stats.length
+      ? [...stats].sort((a, b) => b.level - a.level)[0]
+      : item.stats?.level100Overboost ?? null;
+  };
 
   const getRank = (
     field: "totalPower" | "hp" | "attack" | "defense",
     value: number,
   ) => {
     const higher = allCharacters.filter((item) => {
-      const stats = [...(item.stats?.levelStats ?? [])].sort(
-        (a, b) => b.level - a.level,
-      )[0];
+      const stats = getFinalStats(item);
       return typeof stats?.[field] === "number" && stats[field] > value;
     }).length;
     return `${higher + 1}位/${allCharacters.length}体中`;
@@ -635,25 +641,25 @@ export default function CharacterDetailPage() {
             <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
               <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">ステータス</h2>
 
-              {latestStats || overboostStats || character.stats ? (
+              {displayStats ? (
                 <>
-                  {latestStats ? (
+                  {displayStats ? (
                     <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                      {statRow("Lv" + latestStats.level + " 総合力", latestStats.totalPower, getRank("totalPower", latestStats.totalPower))}
-                      {statRow("体力", latestStats.hp, getRank("hp", latestStats.hp))}
-                      {statRow("攻撃", latestStats.attack, getRank("attack", latestStats.attack))}
-                      {statRow("防御", latestStats.defense, getRank("defense", latestStats.defense))}
-                      {statRow("クリティカル", latestStats.critical)}
+                      {statRow(latestStats ? "Lv" + latestStats.level + " 総合力" : "総合力", displayStats.totalPower, getRank("totalPower", displayStats.totalPower))}
+                      {statRow("体力", displayStats.hp, getRank("hp", displayStats.hp))}
+                      {statRow("攻撃", displayStats.attack, getRank("attack", displayStats.attack))}
+                      {statRow("防御", displayStats.defense, getRank("defense", displayStats.defense))}
+                      {statRow("クリティカル", displayStats.critical)}
                     </div>
                   ) : null}
                   {overboostStats ? (
                     <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
                       <div className="mb-3 text-xs font-black text-primary">Lv100超過ブースト最大時</div>
                       <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                        {statRow("総合力", overboostStats.totalPower)}
-                        {statRow("体力", overboostStats.hp)}
-                        {statRow("攻撃", overboostStats.attack)}
-                        {statRow("防御", overboostStats.defense)}
+                        {statRow("総合力", overboostStats.totalPower, latestStats ? undefined : getRank("totalPower", overboostStats.totalPower))}
+                        {statRow("体力", overboostStats.hp, latestStats ? undefined : getRank("hp", overboostStats.hp))}
+                        {statRow("攻撃", overboostStats.attack, latestStats ? undefined : getRank("attack", overboostStats.attack))}
+                        {statRow("防御", overboostStats.defense, latestStats ? undefined : getRank("defense", overboostStats.defense))}
                         {statRow("クリティカル", overboostStats.critical)}
                       </div>
                     </div>
