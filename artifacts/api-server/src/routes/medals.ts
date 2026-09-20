@@ -6,21 +6,32 @@ import { requireAdmin, requireAuth } from "../middlewares/auth";
 const router: IRouter = Router();
 
 type AdditionalTrait = {
+  stars: 1 | 2 | 3;
   content: string;
-  drawRate: string;
-  unlockCondition: string;
+  drawRate: number;
 };
 
-function normalizeTraits(value: unknown): [AdditionalTrait, AdditionalTrait, AdditionalTrait] {
+function normalizeCandidate(value: unknown): AdditionalTrait | null {
+  const item = value as Partial<AdditionalTrait> | undefined;
+  const stars = Number(item?.stars);
+  const drawRate = Number(item?.drawRate);
+  if (![1, 2, 3].includes(stars) || !Number.isFinite(drawRate) || drawRate < 0) return null;
+  return {
+    stars: stars as 1 | 2 | 3,
+    content: String(item?.content ?? "").trim(),
+    drawRate,
+  };
+}
+
+function normalizeTraits(value: unknown): [AdditionalTrait[], AdditionalTrait[], AdditionalTrait[]] {
   const source = Array.isArray(value) ? value : [];
   return Array.from({ length: 3 }, (_, index) => {
-    const item = source[index] as Partial<AdditionalTrait> | undefined;
-    return {
-      content: String(item?.content ?? "").trim(),
-      drawRate: String(item?.drawRate ?? "").trim(),
-      unlockCondition: String(item?.unlockCondition ?? "").trim(),
-    };
-  }) as [AdditionalTrait, AdditionalTrait, AdditionalTrait];
+    const legacy = source[index] && !Array.isArray(source[index])
+      ? [source[index]]
+      : [];
+    const candidates = Array.isArray(source[index]) ? source[index] : legacy;
+    return candidates.map(normalizeCandidate).filter((item): item is AdditionalTrait => item !== null);
+  }) as [AdditionalTrait[], AdditionalTrait[], AdditionalTrait[]];
 }
 
 function cleanMedalBody(body: any) {

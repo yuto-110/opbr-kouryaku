@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Link } from "wouter";
 import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
-import type { Medal } from "@/data/medal";
+import type { Medal, MedalTag } from "@/data/medal";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://opbr-kouryaku-api.onrender.com/api";
 
-function MedalCard({ medal }: { medal: Medal }) {
+function MedalCard({ medal, tags }: { medal: Medal; tags: MedalTag[] }) {
   return (
     <Link href={`/medals/${medal.id}`} className="interactive-card group rounded-md border border-card-border bg-card p-4 shadow-card">
       <div className="flex gap-3">
@@ -19,7 +19,7 @@ function MedalCard({ medal }: { medal: Medal }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {medal.medalTags.slice(0, 3).map((tag) => <span key={tag} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground">{tag}</span>)}
+        {medal.medalTags.slice(0, 3).map((tagId) => <span key={tagId} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</span>)}
       </div>
     </Link>
   );
@@ -28,21 +28,24 @@ function MedalCard({ medal }: { medal: Medal }) {
 export default function MedalsPage() {
   const [medals, setMedals] = useState<Medal[]>([]);
   const [query, setQuery] = useState("");
+  const [tags, setTags] = useState<MedalTag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/medals`)
-      .then(async (response) => {
+    Promise.all([fetch(`${API_BASE_URL}/medals`), fetch(`${API_BASE_URL}/medal-tags`)])
+      .then(async ([response, tagsResponse]) => {
         if (!response.ok) throw new Error("メダル一覧の取得に失敗しました");
         setMedals((await response.json()) as Medal[]);
+        if (tagsResponse.ok) setTags((await tagsResponse.json()) as MedalTag[]);
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "メダル一覧の取得に失敗しました"));
   }, []);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return medals.filter((medal) => !normalized || `${medal.name}${medal.uniqueTrait}${medal.medalTags.join("")}`.toLowerCase().includes(normalized));
-  }, [medals, query]);
+    return medals.filter((medal) => (!normalized || `${medal.name}${medal.uniqueTrait}${medal.medalTags.map((tagId) => tags.find((tag) => tag.id === tagId)?.name ?? tagId).join("")}`.toLowerCase().includes(normalized)) && selectedTags.every((tag) => medal.medalTags.includes(tag)));
+  }, [medals, query, selectedTags, tags]);
 
   return (
     <GuideShell>
@@ -54,7 +57,8 @@ export default function MedalsPage() {
             <Search size={16} className="text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="メダル名、固有特性、タグで検索" className="w-full bg-transparent text-sm outline-none" data-testid="input-medal-search" />
           </label>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} />)}</div>
+          <div className="mt-3 rounded-md border border-card-border bg-card p-3"><div className="mb-2 text-xs font-bold">メダルタグで絞り込み</div><div className="flex flex-wrap gap-2">{tags.map((tag) => <label key={tag.id} className="rounded border border-border px-2 py-1 text-xs"><input type="checkbox" checked={selectedTags.includes(tag.id)} onChange={(event) => setSelectedTags((current) => event.target.checked ? [...current, tag.id] : current.filter((id) => id !== tag.id))} /> {tag.name}</label>)}</div></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} tags={tags} />)}</div>
           {!filtered.length ? <div className="mt-4"><EmptyState label="登録されたメダルがありません" /></div> : null}
         </div>
         <aside><SidebarCard title="メダル情報"><p className="text-xs leading-5 text-muted-foreground">メダルタグはキャラクタータグとは別のマスターデータです。</p></SidebarCard></aside>

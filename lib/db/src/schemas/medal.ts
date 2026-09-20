@@ -1,9 +1,9 @@
 import { Schema, model, type Document } from "mongoose";
 
 export interface IMedalAdditionalTrait {
+  stars: 1 | 2 | 3;
   content: string;
-  drawRate: string;
-  unlockCondition: string;
+  drawRate: number;
 }
 
 export interface IMedal extends Document {
@@ -12,7 +12,11 @@ export interface IMedal extends Document {
   imageUrl: string;
   uniqueTrait: string;
   medalTags: string[];
-  additionalTraits: [IMedalAdditionalTrait, IMedalAdditionalTrait, IMedalAdditionalTrait];
+  additionalTraits: [
+    IMedalAdditionalTrait[],
+    IMedalAdditionalTrait[],
+    IMedalAdditionalTrait[],
+  ];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,9 +33,9 @@ export interface IMedalTagMaster extends Document {
 
 const additionalTraitSchema = new Schema<IMedalAdditionalTrait>(
   {
+    stars: { type: Number, enum: [1, 2, 3], required: true },
     content: { type: String, trim: true, default: "" },
-    drawRate: { type: String, trim: true, default: "" },
-    unlockCondition: { type: String, trim: true, default: "" },
+    drawRate: { type: Number, min: 0, default: 0 },
   },
   { _id: false },
 );
@@ -47,7 +51,7 @@ const medalSchema = new Schema<IMedal>(
       type: [additionalTraitSchema],
       required: true,
       validate: {
-        validator: (value: unknown[]) => value.length === 3,
+        validator: (value: unknown[]) => value.length === 3 && value.every(Array.isArray),
         message: "追加特性は3枠必要です",
       },
     },

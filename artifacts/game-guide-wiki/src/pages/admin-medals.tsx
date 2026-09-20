@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { ArrowLeft, Pencil, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { emptyAdditionalTraits, type Medal, type MedalAdditionalTrait, type MedalTag } from "@/data/medal";
@@ -48,12 +48,39 @@ export default function AdminMedalsPage() {
 
   function edit(item: Medal) {
     setEditingId(item.id);
-    setForm({ name: item.name, imageUrl: item.imageUrl, uniqueTrait: item.uniqueTrait, medalTags: item.medalTags, additionalTraits: item.additionalTraits.length === 3 ? item.additionalTraits : emptyAdditionalTraits() });
+    setForm({ name: item.name, imageUrl: item.imageUrl, uniqueTrait: item.uniqueTrait, medalTags: item.medalTags, additionalTraits: item.additionalTraits.map((candidates) => Array.isArray(candidates) ? candidates : []).length === 3 ? item.additionalTraits.map((candidates) => Array.isArray(candidates) ? candidates : []) as FormState["additionalTraits"] : emptyAdditionalTraits() });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function updateTrait(index: number, field: keyof MedalAdditionalTrait, value: string) {
-    setForm((current) => ({ ...current, additionalTraits: current.additionalTraits.map((trait, traitIndex) => traitIndex === index ? { ...trait, [field]: value } : trait) as FormState["additionalTraits"] }));
+  function updateCandidate(traitIndex: number, candidateIndex: number, field: keyof MedalAdditionalTrait, value: string) {
+    setForm((current) => ({
+      ...current,
+      additionalTraits: current.additionalTraits.map((candidates, index) =>
+        index === traitIndex
+          ? candidates.map((candidate, index) => index === candidateIndex
+            ? { ...candidate, [field]: field === "stars" ? Number(value) as 1 | 2 | 3 : field === "drawRate" ? Number(value) : value }
+            : candidate)
+          : candidates,
+      ) as FormState["additionalTraits"],
+    }));
+  }
+
+  function addCandidate(index: number) {
+    setForm((current) => ({
+      ...current,
+      additionalTraits: current.additionalTraits.map((candidates, traitIndex) =>
+        traitIndex === index ? [...candidates, { stars: 1, content: "", drawRate: 0 }] : candidates,
+      ) as FormState["additionalTraits"],
+    }));
+  }
+
+  function removeCandidate(traitIndex: number, candidateIndex: number) {
+    setForm((current) => ({
+      ...current,
+      additionalTraits: current.additionalTraits.map((candidates, index) =>
+        index === traitIndex ? candidates.filter((_, index) => index !== candidateIndex) : candidates,
+      ) as FormState["additionalTraits"],
+    }));
   }
 
   async function upload(file: File) {
@@ -102,8 +129,8 @@ export default function AdminMedalsPage() {
           <label className="text-sm font-bold">メダル名<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" /></label>
           <label className="text-sm font-bold">メダル画像<input type="file" accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => setImageFile(e.target.files?.[0] ?? null)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-xs" /><input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="画像URL（直接入力も可）" className="mt-2 w-full rounded border border-border bg-background px-3 py-2 text-xs" /></label>
           <label className="text-sm font-bold md:col-span-2">固有特性<textarea value={form.uniqueTrait} onChange={(e) => setForm({ ...form, uniqueTrait: e.target.value })} className="mt-1 min-h-20 w-full rounded border border-border bg-background px-3 py-2" /></label>
-          <div className="md:col-span-2"><span className="text-sm font-bold">メダルタグ</span><div className="mt-2 flex flex-wrap gap-2">{tags.map((tag) => <label key={tag.id} className="rounded border border-border px-2 py-1 text-xs"><input type="checkbox" checked={form.medalTags.includes(tag.name)} onChange={(e) => setForm({ ...form, medalTags: e.target.checked ? [...form.medalTags, tag.name] : form.medalTags.filter((name) => name !== tag.name) })} /> {tag.name}</label>)}</div></div>
-          <div className="md:col-span-2"><h3 className="mb-2 text-sm font-black">追加特性（3枠固定）</h3><div className="grid gap-3 md:grid-cols-3">{form.additionalTraits.map((trait, index) => <div key={index} className="rounded border border-border p-3"><div className="mb-2 text-xs font-black">追加特性{index + 1}</div><textarea value={trait.content} onChange={(e) => updateTrait(index, "content", e.target.value)} placeholder="特性内容" className="mb-2 min-h-16 w-full rounded border border-border bg-background px-2 py-1 text-xs" /><input value={trait.drawRate} onChange={(e) => updateTrait(index, "drawRate", e.target.value)} placeholder="抽選割合" className="mb-2 w-full rounded border border-border bg-background px-2 py-1 text-xs" /><input value={trait.unlockCondition} onChange={(e) => updateTrait(index, "unlockCondition", e.target.value)} placeholder="解放条件（例：強化1）" className="w-full rounded border border-border bg-background px-2 py-1 text-xs" /></div>)}</div></div>
+          <div className="md:col-span-2"><span className="text-sm font-bold">メダルタグ</span><select value="" onChange={(event) => { const value = event.target.value; if (value && !form.medalTags.includes(value)) setForm({ ...form, medalTags: [...form.medalTags, value] }); }} className="mt-2 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="">タグを選択</option>{tags.filter((tag) => !form.medalTags.includes(tag.id)).map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}</select><div className="mt-2 flex flex-wrap gap-2">{form.medalTags.map((tagId) => { const tag = tags.find((item) => item.id === tagId); return <span key={tagId} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">{tag?.name ?? tagId}<button type="button" onClick={() => setForm({ ...form, medalTags: form.medalTags.filter((id) => id !== tagId) })}><X size={12} /></button></span>; })}</div></div>
+          <div className="md:col-span-2"><h3 className="mb-2 text-sm font-black">追加特性（候補を自由に追加）</h3><div className="grid gap-3 md:grid-cols-3">{form.additionalTraits.map((candidates, index) => <div key={index} className="rounded border border-border p-3"><div className="mb-2 text-xs font-black">追加特性{index + 1}</div>{candidates.map((candidate, candidateIndex) => <div key={candidateIndex} className="mb-2 rounded border border-border bg-background p-2"><div className="mb-2 flex items-center justify-between text-xs font-bold"><span>候補 {candidateIndex + 1}</span><button type="button" onClick={() => removeCandidate(index, candidateIndex)} className="text-red-600"><Trash2 size={13} /></button></div><select value={candidate.stars} onChange={(e) => updateCandidate(index, candidateIndex, "stars", e.target.value)} className="mb-2 w-full rounded border border-border px-2 py-1 text-xs"><option value={1}>★</option><option value={2}>★★</option><option value={3}>★★★</option></select><textarea value={candidate.content} onChange={(e) => updateCandidate(index, candidateIndex, "content", e.target.value)} placeholder="特性内容" className="mb-2 min-h-14 w-full rounded border border-border px-2 py-1 text-xs" /><input type="number" min="0" step="0.01" value={candidate.drawRate} onChange={(e) => updateCandidate(index, candidateIndex, "drawRate", e.target.value)} placeholder="抽選確率（%）" className="w-full rounded border border-border px-2 py-1 text-xs" /></div>)}<button type="button" onClick={() => addCandidate(index)} className="mt-1 inline-flex items-center gap-1 rounded border border-primary px-2 py-1 text-xs font-bold text-primary"><Plus size={13} />抽選候補を追加</button></div>)}</div></div>
         </div>
         <button onClick={() => void save()} className="mt-5 inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-xs font-bold text-white"><Save size={14} />保存</button>
       </section>

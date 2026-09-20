@@ -1,7 +1,7 @@
 export type MedalAdditionalTrait = {
+  stars: 1 | 2 | 3;
   content: string;
-  drawRate: string;
-  unlockCondition: string;
+  drawRate: number;
 };
 
 export type Medal = {
@@ -10,7 +10,7 @@ export type Medal = {
   imageUrl: string;
   uniqueTrait: string;
   medalTags: string[];
-  additionalTraits: [MedalAdditionalTrait, MedalAdditionalTrait, MedalAdditionalTrait];
+  additionalTraits: [MedalAdditionalTrait[], MedalAdditionalTrait[], MedalAdditionalTrait[]];
   active?: boolean;
 };
 
@@ -22,13 +22,13 @@ export type MedalTag = {
 };
 
 export const emptyAdditionalTrait = (): MedalAdditionalTrait => ({
+  stars: 1,
   content: "",
-  drawRate: "",
-  unlockCondition: "",
+  drawRate: 0,
 });
 
 export const emptyAdditionalTraits = (): Medal["additionalTraits"] => [
-  emptyAdditionalTrait(),
-  emptyAdditionalTrait(),
-  emptyAdditionalTrait(),
+  [],
+  [],
+  [],
 ];

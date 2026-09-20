@@ -2,21 +2,25 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Bookmark } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
-import type { Medal } from "@/data/medal";
+import type { Medal, MedalTag } from "@/data/medal";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://opbr-kouryaku-api.onrender.com/api";
 
 export default function MedalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [medal, setMedal] = useState<Medal | null>(null);
+  const [tags, setTags] = useState<MedalTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/medals/${encodeURIComponent(id ?? "")}`)
-      .then(async (response) => {
+    Promise.all([
+      fetch(`${API_BASE_URL}/medals/${encodeURIComponent(id ?? "")}`),
+      fetch(`${API_BASE_URL}/medal-tags`),
+    ]).then(async ([response, tagsResponse]) => {
         if (!response.ok) throw new Error("メダルが見つかりません");
         setMedal((await response.json()) as Medal);
+        if (tagsResponse.ok) setTags((await tagsResponse.json()) as MedalTag[]);
       })
       .catch(() => setMedal(null))
       .finally(() => setLoading(false));
@@ -44,11 +48,11 @@ export default function MedalDetailPage() {
         </section>
         <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
           <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">メダルタグ</h2>
-          <div className="flex flex-wrap gap-2">{medal.medalTags.length ? medal.medalTags.map((tag) => <span key={tag} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{tag}</span>) : <span className="text-sm text-muted-foreground">未登録</span>}</div>
+          <div className="flex flex-wrap gap-2">{medal.medalTags.length ? medal.medalTags.map((tagId) => <span key={tagId} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</span>) : <span className="text-sm text-muted-foreground">未登録</span>}</div>
         </section>
         <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
           <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">追加特性</h2>
-          <div className="space-y-3">{medal.additionalTraits.map((trait, index) => <div key={index} className="rounded-md border border-border p-4"><h3 className="font-black">追加特性{index + 1}</h3><p className="mt-2 text-sm leading-6">{trait.content || "未登録"}</p><div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"><span>抽選割合：{trait.drawRate || "未登録"}</span><span>{trait.unlockCondition || "解放条件未登録"}</span></div></div>)}</div>
+          <div className="space-y-3">{medal.additionalTraits.map((candidates, index) => <div key={index} className="rounded-md border border-border p-4"><h3 className="mb-3 font-black">追加特性{index + 1}</h3>{candidates.length ? <div className="space-y-2">{candidates.map((candidate, candidateIndex) => <div key={candidateIndex} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded bg-background p-3 text-sm"><span className="font-black text-amber-600">{"★".repeat(candidate.stars)}</span><span className="flex-1">{candidate.content}</span><span className="font-data text-xs text-muted-foreground">{candidate.drawRate.toFixed(2)}%</span></div>)}</div> : <span className="text-sm text-muted-foreground">未登録</span>}</div>)}</div>
         </section>
       </div>
     </GuideShell>
