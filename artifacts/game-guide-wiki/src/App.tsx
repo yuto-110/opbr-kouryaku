@@ -20,6 +20,7 @@ import StrategyPage from '@/pages/strategy';
 import RankingsPage from '@/pages/rankings';
 import AdminCharactersPage from '@/pages/admin-characters';
 import AdminCharacterTagsPage from '@/pages/admin-character-tags';
+import AdminCharacterIconsPage from '@/pages/admin-character-icons';
 import AuthPage from '@/pages/auth';
 import AdminPage from '@/pages/admin';
 
