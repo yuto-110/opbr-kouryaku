@@ -502,7 +502,7 @@ export default function CharacterDetailPage() {
                   )}
                   <CharacterTagHexList
                     tags={character.tags ?? []}
-                    className="absolute left-2 top-2 z-10 max-w-[80%]"
+                    className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
                     onTagClick={(tag) =>
                       setSelectedTag(
                         tagMasters.find((item) => item.name === tag) ?? {

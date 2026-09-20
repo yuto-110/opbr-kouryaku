@@ -50,7 +50,7 @@ function CharacterCard({ character }: { character: Character }) {
         )}
         <CharacterTagHexList
           tags={character.tags ?? []}
-          className="absolute left-2 top-2 z-10 max-w-[80%]"
+          className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
         />
         <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
       </div>

@@ -17,7 +17,7 @@ export function CharacterTagHexList({
     <div className={`flex flex-wrap items-start gap-1.5 ${className}`.trim()}>
       {tags.map((tag) => {
         const commonClassName =
-          "inline-flex min-h-7 max-w-[88px] items-center justify-center bg-primary/90 px-3 py-1 text-center text-[10px] font-black leading-[1.2] text-white shadow-sm whitespace-normal break-words [overflow-wrap:anywhere]";
+          "inline-flex min-h-7 max-w-full items-center justify-center bg-primary/90 px-3 py-1 text-center text-[10px] font-black leading-[1.2] text-white shadow-sm whitespace-nowrap";
 
         if (onTagClick) {
           return (
