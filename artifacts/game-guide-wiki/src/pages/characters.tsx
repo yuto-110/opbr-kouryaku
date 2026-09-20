@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Filter, Search, SlidersHorizontal } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
+import { CharacterTagHexList } from "@/components/character-tag-hex-list";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -47,7 +48,11 @@ function CharacterCard({ character }: { character: Character }) {
         ) : (
           <div className="grid h-full place-items-center text-[9px] font-black text-muted-foreground">NO IMAGE</div>
         )}
-        <span className={`absolute left-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
+        <CharacterTagHexList
+          tags={character.tags ?? []}
+          className="absolute left-2 top-2 z-10 max-w-[80%]"
+        />
+        <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
       </div>
 
       <div className="min-w-0 flex-1 p-3.5">
@@ -65,11 +70,6 @@ function CharacterCard({ character }: { character: Character }) {
           {character.faction && <span className="text-[10px] text-muted-foreground">/ {character.faction}</span>}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {(character.tags ?? []).slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground">{tag}</span>
-          ))}
-        </div>
       </div>
     </Link>
   );

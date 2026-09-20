@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
+import { CharacterTagHexList, HEXAGON_CLIP_PATH } from "@/components/character-tag-hex-list";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -499,12 +500,32 @@ export default function CharacterDetailPage() {
                   ) : (
                     <div className="grid h-full place-items-center text-xs font-black text-muted-foreground">NO IMAGE</div>
                   )}
+                  <CharacterTagHexList
+                    tags={character.tags ?? []}
+                    className="absolute left-2 top-2 z-10 max-w-[80%]"
+                    onTagClick={(tag) =>
+                      setSelectedTag(
+                        tagMasters.find((item) => item.name === tag) ?? {
+                          id: `missing-${tag}`,
+                          name: tag,
+                          supportCategory: "未登録",
+                          supportEffect: "このタグの詳細はまだ登録されていません。",
+                          levels: [],
+                        },
+                      )
+                    }
+                  />
                   {character.characterIconUrl && (
-                    <img
-                      src={character.characterIconUrl}
-                      alt=""
-                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
-                    />
+                    <div
+                      className="absolute right-2 top-2 z-10 h-14 w-14 overflow-hidden bg-transparent"
+                      style={{ clipPath: HEXAGON_CLIP_PATH }}
+                    >
+                      <img
+                        src={character.characterIconUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -689,32 +710,6 @@ export default function CharacterDetailPage() {
                 </div>
               )}
             </section>
-
-            {(character.tags ?? []).length > 0 && (
-              <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
-                <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">タグ</h2>
-                <div className="flex flex-wrap gap-2">
-                  {(character.tags ?? []).map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setSelectedTag(
-                        tagMasters.find((item) => item.name === tag) ?? {
-                          id: `missing-${tag}`,
-                          name: tag,
-                          supportCategory: "未登録",
-                          supportEffect: "このタグの詳細はまだ登録されていません。",
-                          levels: [],
-                        },
-                      )}
-                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
 
             {(character.skills ?? []).length > 0 && (
               <section className="mt-6">
