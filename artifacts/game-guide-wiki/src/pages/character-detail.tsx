@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
+import { CharacterIconOverlay } from "@/components/character-icon-overlay";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -366,7 +367,7 @@ function statRow(label: string, value: number, rank?: string) {
   return (
     <div key={label} className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="flex items-baseline gap-2 text-right">
+      <span className="flex max-w-[65%] flex-wrap items-baseline justify-end gap-x-2 gap-y-0.5 text-right">
         <span className="font-data text-sm font-bold">{value.toLocaleString()}</span>
         {rank ? <span className="font-data text-[10px] font-bold text-muted-foreground">{rank}</span> : null}
       </span>
@@ -487,16 +488,6 @@ export default function CharacterDetailPage() {
 
   return (
     <GuideShell>
-      <svg aria-hidden className="absolute h-0 w-0">
-        <defs>
-          <filter id="remove-white-icon-background" colorInterpolationFilters="sRGB">
-            <feColorMatrix
-              type="matrix"
-              values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -1 -1 -1 0 2.9"
-            />
-          </filter>
-        </defs>
-      </svg>
       <div className="animate-enter">
         <Link href="/characters" className="mb-5 inline-flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary">
           <ArrowLeft size={14} /> キャラクター一覧に戻る
@@ -513,11 +504,9 @@ export default function CharacterDetailPage() {
                     <div className="grid h-full place-items-center text-xs font-black text-muted-foreground">NO IMAGE</div>
                   )}
                   {character.characterIconUrl && (
-                    <img
-                      src={character.characterIconUrl}
-                      alt=""
-                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
-                      style={{ filter: "url(#remove-white-icon-background)" }}
+                    <CharacterIconOverlay
+                      imageUrl={character.characterIconUrl}
+                      className="h-14 w-14"
                     />
                   )}
                 </div>

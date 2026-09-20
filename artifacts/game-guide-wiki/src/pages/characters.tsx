@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Filter, Search, SlidersHorizontal } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
-import { CharacterTagHexList } from "@/components/character-tag-hex-list";
+import { CharacterIconOverlay } from "@/components/character-icon-overlay";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -20,6 +20,7 @@ type Character = {
   rarity: string;
   tier: string;
   imageUrl?: string;
+  characterIconUrl?: string;
 };
 
 const roles = ["すべて", "アタッカー", "ゲッター", "ディフェンダー"] as const;
@@ -48,10 +49,12 @@ function CharacterCard({ character }: { character: Character }) {
         ) : (
           <div className="grid h-full place-items-center text-[9px] font-black text-muted-foreground">NO IMAGE</div>
         )}
-        <CharacterTagHexList
-          tags={character.tags ?? []}
-          className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
-        />
+        {character.characterIconUrl && (
+          <CharacterIconOverlay
+            imageUrl={character.characterIconUrl}
+            className="h-14 w-14"
+          />
+        )}
         <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
       </div>
 
