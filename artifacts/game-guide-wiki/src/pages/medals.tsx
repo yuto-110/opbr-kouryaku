@@ -1,11 +1,64 @@
-import { useMemo, useState } from 'react';
-import { Search, SlidersHorizontal } from 'lucide-react';
-import { medals } from '@/data/mockData';
-import { EmptyState, GuideShell, MedalCard, PageIntro, SidebarCard } from '@/components/guide-shell';
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { Link } from "wouter";
+import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
+import type { Medal } from "@/data/medal";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://opbr-kouryaku-api.onrender.com/api";
+
+function MedalCard({ medal }: { medal: Medal }) {
+  return (
+    <Link href={`/medals/${medal.id}`} className="interactive-card group rounded-md border border-card-border bg-card p-4 shadow-card">
+      <div className="flex gap-3">
+        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-sm bg-secondary">
+          {medal.imageUrl ? <img src={medal.imageUrl} alt="" className="h-full w-full object-contain" loading="lazy" /> : <span className="font-black text-muted-foreground">印</span>}
+        </div>
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-black group-hover:text-primary">{medal.name}</h2>
+          <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-foreground/80">{medal.uniqueTrait || "固有特性未登録"}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {medal.medalTags.slice(0, 3).map((tag) => <span key={tag} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground">{tag}</span>)}
+      </div>
+    </Link>
+  );
+}
 
 export default function MedalsPage() {
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('すべて');
-  const filtered = useMemo(() => medals.filter((item) => `${item.name}${item.effect}${item.tags.join('')}`.includes(query) && (category === 'すべて' || item.category === category)), [query, category]);
-  return <GuideShell><PageIntro eyebrow="MEDAL DATABASE" title="メダル" description="効果を比較して、キャラクターの強みをさらに伸ばす一枚を選ぶ。" action={<div className="hidden items-center gap-2 text-right sm:flex"><span className="font-data text-2xl font-semibold text-primary">{filtered.length}</span><span className="text-[10px] text-muted-foreground">MEDALS</span></div>} /><div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_240px]"><div><div className="flex items-center gap-2 rounded-md border border-card-border bg-card p-3 shadow-card"><Search size={16} className="text-muted-foreground" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="メダル名、効果、タグで検索" className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" data-testid="input-medal-search" /></div>{filtered.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} />)}</div> : <div className="mt-4"><EmptyState label="条件に一致するメダルが見つかりません" /></div>}</div><aside><SidebarCard title="カテゴリ"><div className="space-y-1">{['すべて', '攻撃強化', '防御強化', '速度強化', '状態異常', '妨害', '回復支援'].map((item) => <button key={item} onClick={() => setCategory(item)} className={`flex w-full items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs font-bold ${category === item ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`} data-testid={`button-medal-category-${item}`}>{item}<span className="font-data text-[10px]">{item === 'すべて' ? medals.length : medals.filter((medal) => medal.category === item).length}</span></button>)}</div><button onClick={() => { setQuery(''); setCategory('すべて'); }} className="mt-4 flex w-full items-center justify-center gap-2 border-t border-border pt-3 text-[10px] font-bold text-muted-foreground hover:text-primary" data-testid="button-reset-medal-filter"><SlidersHorizontal size={13} />条件をリセット</button></SidebarCard></aside></div></GuideShell>;
+  const [medals, setMedals] = useState<Medal[]>([]);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/medals`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("メダル一覧の取得に失敗しました");
+        setMedals((await response.json()) as Medal[]);
+      })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "メダル一覧の取得に失敗しました"));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return medals.filter((medal) => !normalized || `${medal.name}${medal.uniqueTrait}${medal.medalTags.join("")}`.toLowerCase().includes(normalized));
+  }, [medals, query]);
+
+  return (
+    <GuideShell>
+      <PageIntro eyebrow="MEDAL DATABASE" title="メダル" description="固有特性・タグ・追加特性を比較して、編成に合うメダルを選ぶ。" action={<span className="font-data text-2xl font-semibold text-primary">{filtered.length}</span>} />
+      {error ? <p className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div>
+          <label className="flex items-center gap-2 rounded-md border border-card-border bg-card p-3 shadow-card">
+            <Search size={16} className="text-muted-foreground" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="メダル名、固有特性、タグで検索" className="w-full bg-transparent text-sm outline-none" data-testid="input-medal-search" />
+          </label>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} />)}</div>
+          {!filtered.length ? <div className="mt-4"><EmptyState label="登録されたメダルがありません" /></div> : null}
+        </div>
+        <aside><SidebarCard title="メダル情報"><p className="text-xs leading-5 text-muted-foreground">メダルタグはキャラクタータグとは別のマスターデータです。</p></SidebarCard></aside>
+      </div>
+    </GuideShell>
+  );
 }
