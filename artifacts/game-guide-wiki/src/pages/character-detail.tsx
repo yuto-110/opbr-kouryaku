@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
-import { CharacterTagHexList } from "@/components/character-tag-hex-list";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -363,11 +362,14 @@ function TraitPresentation({
   );
 }
 
-function statRow(label: string, value: number) {
+function statRow(label: string, value: number, rank?: string) {
   return (
     <div key={label} className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-data text-sm font-bold">{value.toLocaleString()}</span>
+      <span className="flex items-baseline gap-2 text-right">
+        <span className="font-data text-sm font-bold">{value.toLocaleString()}</span>
+        {rank ? <span className="font-data text-[10px] font-bold text-muted-foreground">{rank}</span> : null}
+      </span>
     </div>
   );
 }
@@ -485,6 +487,16 @@ export default function CharacterDetailPage() {
 
   return (
     <GuideShell>
+      <svg aria-hidden className="absolute h-0 w-0">
+        <defs>
+          <filter id="remove-white-icon-background" colorInterpolationFilters="sRGB">
+            <feColorMatrix
+              type="matrix"
+              values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -1 -1 -1 0 2.9"
+            />
+          </filter>
+        </defs>
+      </svg>
       <div className="animate-enter">
         <Link href="/characters" className="mb-5 inline-flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary">
           <ArrowLeft size={14} /> キャラクター一覧に戻る
@@ -500,26 +512,12 @@ export default function CharacterDetailPage() {
                   ) : (
                     <div className="grid h-full place-items-center text-xs font-black text-muted-foreground">NO IMAGE</div>
                   )}
-                  <CharacterTagHexList
-                    tags={character.tags ?? []}
-                    className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
-                    onTagClick={(tag) =>
-                      setSelectedTag(
-                        tagMasters.find((item) => item.name === tag) ?? {
-                          id: `missing-${tag}`,
-                          name: tag,
-                          supportCategory: "未登録",
-                          supportEffect: "このタグの詳細はまだ登録されていません。",
-                          levels: [],
-                        },
-                      )
-                    }
-                  />
                   {character.characterIconUrl && (
                     <img
                       src={character.characterIconUrl}
                       alt=""
-                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain mix-blend-multiply"
+                      className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
+                      style={{ filter: "url(#remove-white-icon-background)" }}
                     />
                   )}
                 </div>
@@ -652,10 +650,10 @@ export default function CharacterDetailPage() {
                 <>
                   {latestStats ? (
                     <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                      {statRow("Lv" + latestStats.level + " 総合力 " + getRank("totalPower", latestStats.totalPower), latestStats.totalPower)}
-                      {statRow("体力 " + getRank("hp", latestStats.hp), latestStats.hp)}
-                      {statRow("攻撃 " + getRank("attack", latestStats.attack), latestStats.attack)}
-                      {statRow("防御 " + getRank("defense", latestStats.defense), latestStats.defense)}
+                      {statRow("Lv" + latestStats.level + " 総合力", latestStats.totalPower, getRank("totalPower", latestStats.totalPower))}
+                      {statRow("体力", latestStats.hp, getRank("hp", latestStats.hp))}
+                      {statRow("攻撃", latestStats.attack, getRank("attack", latestStats.attack))}
+                      {statRow("防御", latestStats.defense, getRank("defense", latestStats.defense))}
                       {statRow("クリティカル", latestStats.critical)}
                     </div>
                   ) : null}
