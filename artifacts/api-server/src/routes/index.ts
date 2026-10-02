@@ -8,6 +8,8 @@ import uploadsRouter from "./uploads";
 import favoritesRouter from "./favorites";
 import characterTagsRouter from "./character-tags";
 import characterIconsRouter from "./character-icons";
+import medalTagsRouter from "./medal-tags";
+import medalsRouter from "./medals";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(uploadsRouter);
 router.use(favoritesRouter);
 router.use(characterTagsRouter);
 router.use(characterIconsRouter);
+router.use(medalTagsRouter);
+router.use(medalsRouter);
 
 export default router;

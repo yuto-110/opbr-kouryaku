@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
-import { CharacterTagHexList } from "@/components/character-tag-hex-list";
+import { CharacterHexIcon } from "@/components/character-hex-icon";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -363,11 +363,16 @@ function TraitPresentation({
   );
 }
 
-function statRow(label: string, value: number) {
+function statRow(label: string, value: number, rank?: string) {
   return (
-    <div key={label} className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-data text-sm font-bold">{value.toLocaleString()}</span>
+    <div key={label} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+      <span className="min-w-0 break-words text-xs text-muted-foreground">{label}</span>
+      <span className="justify-self-end font-data text-sm font-bold">{value.toLocaleString()}</span>
+      {rank ? (
+        <span className="col-span-2 min-w-0 justify-self-end text-[10px] font-bold text-primary sm:col-span-1">
+          {rank}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -465,7 +470,6 @@ export default function CharacterDetailPage() {
   }
 
   const levelStats = character.stats?.levelStats ?? [];
-  const overboostStats = character.stats?.level100Overboost ?? null;
   const latestStats = levelStats.length
     ? [...levelStats].sort((a, b) => b.level - a.level)[0]
     : null;
@@ -480,7 +484,7 @@ export default function CharacterDetailPage() {
       )[0];
       return typeof stats?.[field] === "number" && stats[field] > value;
     }).length;
-    return `全体で${higher + 1}位/${allCharacters.length}`;
+    return `${higher + 1}位/${allCharacters.length}体中`;
   };
 
   return (
@@ -500,23 +504,8 @@ export default function CharacterDetailPage() {
                   ) : (
                     <div className="grid h-full place-items-center text-xs font-black text-muted-foreground">NO IMAGE</div>
                   )}
-                  <CharacterTagHexList
-                    tags={character.tags ?? []}
-                    className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
-                    onTagClick={(tag) =>
-                      setSelectedTag(
-                        tagMasters.find((item) => item.name === tag) ?? {
-                          id: `missing-${tag}`,
-                          name: tag,
-                          supportCategory: "未登録",
-                          supportEffect: "このタグの詳細はまだ登録されていません。",
-                          levels: [],
-                        },
-                      )
-                    }
-                  />
                   {character.characterIconUrl && (
-                    <img
+                    <CharacterHexIcon
                       src={character.characterIconUrl}
                       alt=""
                       className="absolute left-2 top-2 z-10 h-14 w-14 object-contain"
@@ -648,27 +637,15 @@ export default function CharacterDetailPage() {
             <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
               <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">ステータス</h2>
 
-              {latestStats || overboostStats || character.stats ? (
+              {latestStats || character.stats ? (
                 <>
                   {latestStats ? (
                     <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                      {statRow("Lv" + latestStats.level + " 総合力 " + getRank("totalPower", latestStats.totalPower), latestStats.totalPower)}
-                      {statRow("体力 " + getRank("hp", latestStats.hp), latestStats.hp)}
-                      {statRow("攻撃 " + getRank("attack", latestStats.attack), latestStats.attack)}
-                      {statRow("防御 " + getRank("defense", latestStats.defense), latestStats.defense)}
+                      {statRow(`総合力 (Lv${latestStats.level})`, latestStats.totalPower, getRank("totalPower", latestStats.totalPower))}
+                      {statRow("体力", latestStats.hp, getRank("hp", latestStats.hp))}
+                      {statRow("攻撃", latestStats.attack, getRank("attack", latestStats.attack))}
+                      {statRow("防御", latestStats.defense, getRank("defense", latestStats.defense))}
                       {statRow("クリティカル", latestStats.critical)}
-                    </div>
-                  ) : null}
-                  {overboostStats ? (
-                    <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
-                      <div className="mb-3 text-xs font-black text-primary">Lv100超過ブースト最大時</div>
-                      <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                        {statRow("総合力", overboostStats.totalPower)}
-                        {statRow("体力", overboostStats.hp)}
-                        {statRow("攻撃", overboostStats.attack)}
-                        {statRow("防御", overboostStats.defense)}
-                        {statRow("クリティカル", overboostStats.critical)}
-                      </div>
                     </div>
                   ) : null}
                 </>

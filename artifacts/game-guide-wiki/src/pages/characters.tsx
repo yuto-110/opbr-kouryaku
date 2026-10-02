@@ -3,6 +3,7 @@ import { Filter, Search, SlidersHorizontal } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
 import { CharacterTagHexList } from "@/components/character-tag-hex-list";
+import { CharacterHexIcon } from "@/components/character-hex-icon";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -20,6 +21,7 @@ type Character = {
   rarity: string;
   tier: string;
   imageUrl?: string;
+  characterIconUrl?: string;
 };
 
 const roles = ["すべて", "アタッカー", "ゲッター", "ディフェンダー"] as const;
@@ -52,6 +54,13 @@ function CharacterCard({ character }: { character: Character }) {
           tags={character.tags ?? []}
           className="absolute left-2 top-2 z-10 max-w-[calc(100%-0.5rem)]"
         />
+        {character.characterIconUrl && (
+          <CharacterHexIcon
+            src={character.characterIconUrl}
+            alt=""
+            className="absolute bottom-1.5 right-1.5 z-10 h-9 w-9 object-contain"
+          />
+        )}
         <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
       </div>
 
