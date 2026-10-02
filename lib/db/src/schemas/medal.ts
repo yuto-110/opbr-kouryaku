@@ -3,7 +3,7 @@ import { Schema, model, type Document } from "mongoose";
 export interface IMedalAdditionalTrait {
   stars: 1 | 2 | 3;
   content: string;
-  drawRate: number;
+  probability: number;
 }
 
 export interface IMedal extends Document {
@@ -11,12 +11,10 @@ export interface IMedal extends Document {
   name: string;
   imageUrl: string;
   uniqueTrait: string;
+  tagEffect: string;
   medalTags: string[];
-  additionalTraits: [
-    IMedalAdditionalTrait[],
-    IMedalAdditionalTrait[],
-    IMedalAdditionalTrait[],
-  ];
+  additionalTraits: [string, string, string];
+  drawRates: IMedalAdditionalTrait[];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -25,7 +23,8 @@ export interface IMedal extends Document {
 export interface IMedalTagMaster extends Document {
   id: string;
   name: string;
-  effect: string;
+  twoSetEffect: string;
+  threeSetEffect: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -35,7 +34,7 @@ const additionalTraitSchema = new Schema<IMedalAdditionalTrait>(
   {
     stars: { type: Number, enum: [1, 2, 3], required: true },
     content: { type: String, trim: true, default: "" },
-    drawRate: { type: Number, min: 0, default: 0 },
+    probability: { type: Number, min: 0, default: 0 },
   },
   { _id: false },
 );
@@ -46,15 +45,17 @@ const medalSchema = new Schema<IMedal>(
     name: { type: String, required: true, trim: true },
     imageUrl: { type: String, trim: true, default: "" },
     uniqueTrait: { type: String, trim: true, default: "" },
+    tagEffect: { type: String, trim: true, default: "" },
     medalTags: { type: [String], default: [] },
     additionalTraits: {
-      type: [additionalTraitSchema],
+      type: [String],
       required: true,
       validate: {
-        validator: (value: unknown[]) => value.length === 3 && value.every(Array.isArray),
-        message: "追加特性は3枠必要です",
+        validator: (value: unknown[]) => value.length === 3,
+        message: "追加特性は3件必要です",
       },
     },
+    drawRates: { type: [additionalTraitSchema], default: [] },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -67,7 +68,8 @@ const medalTagMasterSchema = new Schema<IMedalTagMaster>(
   {
     id: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true, unique: true },
-    effect: { type: String, trim: true, default: "" },
+    twoSetEffect: { type: String, trim: true, default: "" },
+    threeSetEffect: { type: String, trim: true, default: "" },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },

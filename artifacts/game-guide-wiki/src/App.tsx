@@ -12,6 +12,7 @@ import CharactersPage from '@/pages/characters';
 import CharacterDetailPage from '@/pages/character-detail';
 import MedalsPage from '@/pages/medals';
 import MedalDetailPage from '@/pages/medal-detail';
+import MedalTagDetailPage from '@/pages/medal-tag-detail';
 import EventsPage from '@/pages/events';
 import EventDetailPage from '@/pages/event-detail';
 import SupportPage from '@/pages/support';
@@ -63,6 +64,11 @@ function Router() {
         <Route
           path="/medals/:id"
           component={MedalDetailPage}
+        />
+
+        <Route
+          path="/medal-tags/:id"
+          component={MedalTagDetailPage}
         />
 
         <Route

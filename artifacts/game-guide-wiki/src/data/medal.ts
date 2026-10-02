@@ -1,7 +1,7 @@
-export type MedalAdditionalTrait = {
+export type MedalDrawRate = {
   stars: 1 | 2 | 3;
   content: string;
-  drawRate: number;
+  probability: number;
 };
 
 export type Medal = {
@@ -9,26 +9,30 @@ export type Medal = {
   name: string;
   imageUrl: string;
   uniqueTrait: string;
+  tagEffect: string;
   medalTags: string[];
-  additionalTraits: [MedalAdditionalTrait[], MedalAdditionalTrait[], MedalAdditionalTrait[]];
+  additionalTraits: [string, string, string];
+  drawRates: MedalDrawRate[];
   active?: boolean;
 };
 
 export type MedalTag = {
   id: string;
   name: string;
-  effect: string;
+  twoSetEffect: string;
+  threeSetEffect: string;
+  effect?: string;
   active?: boolean;
 };
 
-export const emptyAdditionalTrait = (): MedalAdditionalTrait => ({
+export const emptyDrawRate = (): MedalDrawRate => ({
   stars: 1,
   content: "",
-  drawRate: 0,
+  probability: 0,
 });
 
 export const emptyAdditionalTraits = (): Medal["additionalTraits"] => [
-  [],
-  [],
-  [],
+  "",
+  "",
+  "",
 ];

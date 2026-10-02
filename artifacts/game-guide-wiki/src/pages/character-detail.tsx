@@ -365,11 +365,15 @@ function TraitPresentation({
 
 function statRow(label: string, value: number, rank?: string) {
   return (
-    <div key={label} className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="flex max-w-[65%] flex-wrap items-baseline justify-end gap-x-2 gap-y-0.5 text-right">
+    <div key={label} className="flex items-start justify-between gap-3 border-b border-border py-2 last:border-b-0">
+      <span className="min-w-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 max-w-[68%] text-right sm:max-w-none">
         <span className="font-data text-sm font-bold">{value.toLocaleString()}</span>
-        {rank ? <span className="font-data text-[10px] font-bold text-muted-foreground">{rank}</span> : null}
+        {rank ? (
+          <span className="block whitespace-nowrap font-data text-[11px] font-bold text-muted-foreground sm:ml-2 sm:inline">
+            {rank}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -644,24 +648,12 @@ export default function CharacterDetailPage() {
               {displayStats ? (
                 <>
                   {displayStats ? (
-                    <div className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                      {statRow(latestStats ? "Lv" + latestStats.level + " 総合力" : "総合力", displayStats.totalPower, getRank("totalPower", displayStats.totalPower))}
+                    <div className="mb-4 grid gap-x-8 gap-y-1 md:grid-cols-2">
+                      {statRow("総合力", displayStats.totalPower, getRank("totalPower", displayStats.totalPower))}
                       {statRow("体力", displayStats.hp, getRank("hp", displayStats.hp))}
                       {statRow("攻撃", displayStats.attack, getRank("attack", displayStats.attack))}
                       {statRow("防御", displayStats.defense, getRank("defense", displayStats.defense))}
                       {statRow("クリティカル", displayStats.critical)}
-                    </div>
-                  ) : null}
-                  {overboostStats ? (
-                    <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
-                      <div className="mb-3 text-xs font-black text-primary">Lv100超過ブースト最大時</div>
-                      <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                        {statRow("総合力", overboostStats.totalPower, latestStats ? undefined : getRank("totalPower", overboostStats.totalPower))}
-                        {statRow("体力", overboostStats.hp, latestStats ? undefined : getRank("hp", overboostStats.hp))}
-                        {statRow("攻撃", overboostStats.attack, latestStats ? undefined : getRank("attack", overboostStats.attack))}
-                        {statRow("防御", overboostStats.defense, latestStats ? undefined : getRank("defense", overboostStats.defense))}
-                        {statRow("クリティカル", overboostStats.critical)}
-                      </div>
                     </div>
                   ) : null}
                 </>
@@ -853,7 +845,7 @@ export default function CharacterDetailPage() {
                       <div key={level.level} className="grid min-w-0 gap-2 border-b border-border p-3 text-xs last:border-b-0 sm:grid-cols-[64px_100px_minmax(0,1fr)]">
                         <span className="font-black">Lv{level.level}</span>
                         <span className="font-data">累計Lv{level.totalLevel}</span>
-                        <span className="min-w-0 break-words whitespace-normal [overflow-wrap:anywhere]">{level.effect || "未登録"}</span>
+                        <span className="min-w-0 break-words whitespace-pre-wrap [overflow-wrap:anywhere]">{level.effect || "未登録"}</span>
                       </div>
                     ))}
                   </div>
