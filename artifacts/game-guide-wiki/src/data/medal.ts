@@ -17,7 +17,8 @@ export type Medal = {
 export type MedalTag = {
   id: string;
   name: string;
-  effect: string;
+  twoSetEffect: string;
+  threeSetEffect: string;
   active?: boolean;
 };
 

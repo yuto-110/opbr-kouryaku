@@ -52,7 +52,7 @@ function CharacterCard({ character }: { character: Character }) {
         {character.characterIconUrl && (
           <CharacterIconOverlay
             imageUrl={character.characterIconUrl}
-            className="h-14 w-14"
+            className="h-10 w-10"
           />
         )}
         <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />

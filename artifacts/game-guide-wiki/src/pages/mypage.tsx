@@ -201,7 +201,7 @@ export default function MyPage() {
 
             {user.role === "admin" && (
               <Link
-                href="/admin/characters"
+                href="/admin"
                 className="flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-bold text-white hover:opacity-90"
               >
                 <Shield size={14} />
@@ -519,7 +519,7 @@ export default function MyPage() {
               </p>
 
               <Link
-                href="/admin/characters"
+                href="/admin"
                 className="mt-3 inline-flex w-full items-center justify-center rounded-sm bg-primary px-3 py-2 text-xs font-bold text-white"
               >
                 管理画面を開く

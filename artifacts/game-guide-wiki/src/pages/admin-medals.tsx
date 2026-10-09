@@ -21,7 +21,7 @@ export default function AdminMedalsPage() {
   const [items, setItems] = useState<Medal[]>([]);
   const [tags, setTags] = useState<MedalTag[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm());
-  const [tagForm, setTagForm] = useState({ name: "", effect: "" });
+  const [tagForm, setTagForm] = useState({ name: "", twoSetEffect: "", threeSetEffect: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -107,7 +107,7 @@ export default function AdminMedalsPage() {
     if (!tagForm.name.trim()) { setError("メダルタグ名を入力してください"); return; }
     const response = await fetch(editingTagId ? `${API_BASE_URL}/admin/medal-tags/${editingTagId}` : `${API_BASE_URL}/admin/medal-tags`, { method: editingTagId ? "PUT" : "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(tagForm) });
     if (!response.ok) { setError("メダルタグの保存に失敗しました"); return; }
-    setTagForm({ name: "", effect: "" }); setEditingTagId(null); await load();
+    setTagForm({ name: "", twoSetEffect: "", threeSetEffect: "" }); setEditingTagId(null); await load();
   }
 
   async function remove(path: string) {
@@ -134,7 +134,7 @@ export default function AdminMedalsPage() {
         </div>
         <button onClick={() => void save()} className="mt-5 inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-xs font-bold text-white"><Save size={14} />保存</button>
       </section>
-      <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card"><h2 className="mb-4 text-lg font-black">メダルタグマスター</h2><div className="flex flex-wrap gap-2"><input value={tagForm.name} onChange={(e) => setTagForm({ ...tagForm, name: e.target.value })} placeholder="タグ名" className="rounded border border-border bg-background px-3 py-2 text-sm" /><input value={tagForm.effect} onChange={(e) => setTagForm({ ...tagForm, effect: e.target.value })} placeholder="タグの効果（任意）" className="rounded border border-border bg-background px-3 py-2 text-sm" /><button onClick={() => void saveTag()} className="rounded bg-primary px-3 py-2 text-xs font-bold text-white">タグ保存</button></div><div className="mt-4 space-y-2">{tags.map((tag) => <div key={tag.id} className="flex items-center justify-between rounded border border-border p-3 text-sm"><span><b>{tag.name}</b><span className="ml-2 text-xs text-muted-foreground">{tag.effect}</span></span><span className="flex gap-2"><button onClick={() => { setEditingTagId(tag.id); setTagForm({ name: tag.name, effect: tag.effect }); }}><Pencil size={14} /></button><button onClick={() => void remove(`medal-tags/${tag.id}`)}><Trash2 size={14} /></button></span></div>)}</div></section>
+      <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card"><h2 className="mb-4 text-lg font-black">メダルタグマスター</h2><div className="grid gap-2 md:grid-cols-2"><input value={tagForm.name} onChange={(e) => setTagForm({ ...tagForm, name: e.target.value })} placeholder="タグ名" className="rounded border border-border bg-background px-3 py-2 text-sm" /><textarea value={tagForm.twoSetEffect} onChange={(e) => setTagForm({ ...tagForm, twoSetEffect: e.target.value })} placeholder="2セット効果" className="rounded border border-border bg-background px-3 py-2 text-sm" /><textarea value={tagForm.threeSetEffect} onChange={(e) => setTagForm({ ...tagForm, threeSetEffect: e.target.value })} placeholder="3セット効果" className="rounded border border-border bg-background px-3 py-2 text-sm" /><button onClick={() => void saveTag()} className="rounded bg-primary px-3 py-2 text-xs font-bold text-white">タグ保存</button></div><div className="mt-4 space-y-2">{tags.map((tag) => <div key={tag.id} className="flex items-center justify-between rounded border border-border p-3 text-sm"><span><b>{tag.name}</b><span className="ml-2 text-xs text-muted-foreground">{tag.twoSetEffect}</span></span><span className="flex gap-2"><button onClick={() => { setEditingTagId(tag.id); setTagForm({ name: tag.name, twoSetEffect: tag.twoSetEffect, threeSetEffect: tag.threeSetEffect }); }}><Pencil size={14} /></button><button onClick={() => void remove(`medal-tags/${tag.id}`)}><Trash2 size={14} /></button></span></div>)}</div></section>
       <section className="mt-6 space-y-2">{items.map((item) => <div key={item.id} className="flex items-center justify-between rounded-md border border-card-border bg-card p-4 shadow-card"><div className="flex items-center gap-3"><div className="h-12 w-12 overflow-hidden rounded bg-secondary">{item.imageUrl ? <img src={item.imageUrl} alt="" className="h-full w-full object-contain" /> : null}</div><div><b>{item.name}</b><p className="text-xs text-muted-foreground">{item.medalTags.join(" / ")}</p></div></div><span className="flex gap-3"><button onClick={() => edit(item)} className="text-primary"><Pencil size={16} /></button><button onClick={() => void remove(`medals/${item.id}`)} className="text-red-600"><Trash2 size={16} /></button></span></div>)}</section>
     </GuideShell>
   );

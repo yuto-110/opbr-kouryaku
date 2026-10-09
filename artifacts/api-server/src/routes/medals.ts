@@ -50,7 +50,8 @@ function cleanMedalBody(body: any) {
 function cleanTagBody(body: any) {
   return {
     name: String(body?.name ?? "").trim(),
-    effect: String(body?.effect ?? "").trim(),
+    twoSetEffect: String(body?.twoSetEffect ?? body?.effect ?? "").trim(),
+    threeSetEffect: String(body?.threeSetEffect ?? "").trim(),
     active: body?.active !== false,
   };
 }
@@ -85,6 +86,18 @@ router.get("/medal-tags", async (_req, res) => {
   try {
     await connectDB();
     return res.json(await MedalTagMaster.find({ active: true }).sort({ name: 1 }).lean());
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ code: "INTERNAL_ERROR", message: "メダルタグの取得に失敗しました" });
+  }
+});
+
+router.get("/medal-tags/:id", async (req, res) => {
+  try {
+    await connectDB();
+    const tag = await MedalTagMaster.findOne({ id: req.params.id, active: true }).lean();
+    if (!tag) return res.status(404).json({ code: "NOT_FOUND", message: "メダルタグが見つかりません" });
+    return res.json(tag);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ code: "INTERNAL_ERROR", message: "メダルタグの取得に失敗しました" });

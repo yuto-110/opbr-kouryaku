@@ -19,7 +19,7 @@ function MedalCard({ medal, tags }: { medal: Medal; tags: MedalTag[] }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {medal.medalTags.slice(0, 3).map((tagId) => <span key={tagId} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</span>)}
+        {medal.medalTags.slice(0, 3).map((tagId) => <Link key={tagId} href={`/medal-tags/${tagId}`} onClick={(event) => event.stopPropagation()} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground hover:text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</Link>)}
       </div>
     </Link>
   );
@@ -57,7 +57,7 @@ export default function MedalsPage() {
             <Search size={16} className="text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="メダル名、固有特性、タグで検索" className="w-full bg-transparent text-sm outline-none" data-testid="input-medal-search" />
           </label>
-          <div className="mt-3 rounded-md border border-card-border bg-card p-3"><div className="mb-2 text-xs font-bold">メダルタグで絞り込み</div><div className="flex flex-wrap gap-2">{tags.map((tag) => <label key={tag.id} className="rounded border border-border px-2 py-1 text-xs"><input type="checkbox" checked={selectedTags.includes(tag.id)} onChange={(event) => setSelectedTags((current) => event.target.checked ? [...current, tag.id] : current.filter((id) => id !== tag.id))} /> {tag.name}</label>)}</div></div>
+          <div className="mt-3 rounded-md border border-card-border bg-card p-3"><div className="mb-2 text-xs font-bold">メダルタグで絞り込み</div><div className="flex flex-wrap gap-2">{tags.map((tag) => <Link key={tag.id} href={`/medal-tags/${tag.id}`} className={`rounded border px-2 py-1 text-xs ${selectedTags.includes(tag.id) ? "border-primary bg-primary text-white" : "border-border"}`} onClick={(event) => { event.preventDefault(); setSelectedTags((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id]); }}>{tag.name}</Link>)}</div></div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} tags={tags} />)}</div>
           {!filtered.length ? <div className="mt-4"><EmptyState label="登録されたメダルがありません" /></div> : null}
         </div>

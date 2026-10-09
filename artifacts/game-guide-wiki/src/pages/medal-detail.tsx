@@ -48,7 +48,7 @@ export default function MedalDetailPage() {
         </section>
         <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
           <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">メダルタグ</h2>
-          <div className="flex flex-wrap gap-2">{medal.medalTags.length ? medal.medalTags.map((tagId) => <span key={tagId} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</span>) : <span className="text-sm text-muted-foreground">未登録</span>}</div>
+          <div className="flex flex-wrap gap-2">{medal.medalTags.length ? medal.medalTags.map((tagId) => <Link key={tagId} href={`/medal-tags/${tagId}`} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</Link>) : <span className="text-sm text-muted-foreground">未登録</span>}</div>
         </section>
         <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
           <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">追加特性</h2>

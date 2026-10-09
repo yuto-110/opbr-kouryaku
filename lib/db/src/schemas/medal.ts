@@ -25,7 +25,8 @@ export interface IMedal extends Document {
 export interface IMedalTagMaster extends Document {
   id: string;
   name: string;
-  effect: string;
+  twoSetEffect: string;
+  threeSetEffect: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -48,7 +49,7 @@ const medalSchema = new Schema<IMedal>(
     uniqueTrait: { type: String, trim: true, default: "" },
     medalTags: { type: [String], default: [] },
     additionalTraits: {
-      type: [additionalTraitSchema],
+      type: [[additionalTraitSchema]],
       required: true,
       validate: {
         validator: (value: unknown[]) => value.length === 3 && value.every(Array.isArray),
@@ -67,7 +68,8 @@ const medalTagMasterSchema = new Schema<IMedalTagMaster>(
   {
     id: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true, unique: true },
-    effect: { type: String, trim: true, default: "" },
+    twoSetEffect: { type: String, trim: true, default: "" },
+    threeSetEffect: { type: String, trim: true, default: "" },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },

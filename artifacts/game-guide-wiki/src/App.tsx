@@ -22,6 +22,7 @@ import AdminCharactersPage from '@/pages/admin-characters';
 import AdminCharacterTagsPage from '@/pages/admin-character-tags';
 import AdminCharacterIconsPage from '@/pages/admin-character-icons';
 import AdminMedalsPage from '@/pages/admin-medals';
+import MedalTagDetailPage from '@/pages/medal-tag-detail';
 import AuthPage from '@/pages/auth';
 import AdminPage from '@/pages/admin';
 
@@ -63,6 +64,11 @@ function Router() {
         <Route
           path="/medals/:id"
           component={MedalDetailPage}
+        />
+
+        <Route
+          path="/medal-tags/:id"
+          component={MedalTagDetailPage}
         />
 
         <Route
