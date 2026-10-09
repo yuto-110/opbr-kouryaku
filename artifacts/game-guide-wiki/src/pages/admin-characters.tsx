@@ -345,6 +345,7 @@ type TeamBoostForm = {
 
 type FormState = {
   name: string;
+  reading: string;
   description: string;
 
   tags: string[];
@@ -437,6 +438,7 @@ function emptyTeamBoost(): TeamBoostForm {
 function makeForm(character?: Character): FormState {
   return {
     name: character?.name ?? "",
+    reading: character?.reading ?? "",
     description: character?.description ?? "",
 
     tags: character?.tags ?? [],
@@ -2557,6 +2559,9 @@ export default function AdminCharactersPage() {
         name:
           form.name.trim(),
 
+        reading:
+          form.reading.trim(),
+
         description:
           form.description.trim(),
 
@@ -3305,7 +3310,7 @@ export default function AdminCharactersPage() {
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               <Field
                 label="キャラクター名 *"
                 value={form.name}
@@ -3318,6 +3323,13 @@ export default function AdminCharactersPage() {
                   )
                 }
                 placeholder="例：ルフィ"
+              />
+
+              <Field
+                label="読み（ふりがな）"
+                value={form.reading}
+                onChange={(value) => setForm((current) => ({ ...current, reading: value }))}
+                placeholder="例：ろろのあ・ぞろ"
               />
 
               <SelectField

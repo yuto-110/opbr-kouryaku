@@ -25,7 +25,7 @@ type CharacterTagMaster = {
   name: string;
   supportCategory?: string;
   supportEffect?: string;
-  levels?: Array<{ level: number; totalLevel: number; effect: string }>;
+  levels?: Array<{ level: number; totalLevel: number; effects?: string[]; effect?: string }>;
 };
 
 type Character = {
@@ -183,7 +183,7 @@ function SkillGroup({
 
       {/* スキル名 */}
       <div className="border-b-2 border-primary/40 px-5 py-4">
-        <h3 className="text-xl font-black">
+        <h3 className="break-words text-base font-black leading-snug [overflow-wrap:anywhere] sm:text-xl">
           {title}「{active.name}」
         </h3>
       </div>
@@ -212,7 +212,7 @@ function SkillGroup({
       <div className="p-4 sm:p-6">
         <div className="overflow-hidden rounded-md border border-border">
           {/* アイコン + スキル情報 */}
-          <div className="flex min-w-0 items-start gap-4 p-4 sm:p-5">
+          <div className="flex min-w-0 flex-col items-start gap-3 p-3 sm:flex-row sm:gap-4 sm:p-5">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-border bg-muted sm:h-24 sm:w-24">
               {active.imageUrl ? (
                 <img
@@ -228,7 +228,7 @@ function SkillGroup({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="whitespace-pre-line text-sm font-black leading-7 sm:text-base">
+              <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-black leading-7 [overflow-wrap:anywhere] sm:text-base">
                 {active.skillInfo || "スキル情報未登録"}
               </div>
 
@@ -268,7 +268,7 @@ function SkillGroup({
               詳細
             </div>
 
-            <div className="whitespace-pre-line text-sm leading-7">
+            <div className="min-w-0 whitespace-pre-wrap break-words text-sm leading-7 [overflow-wrap:anywhere]">
               {active.description || "詳細未登録"}
             </div>
           </div>
@@ -837,7 +837,7 @@ export default function CharacterDetailPage() {
                       <div key={level.level} className="grid min-w-0 gap-2 border-b border-border p-3 text-xs last:border-b-0 sm:grid-cols-[64px_100px_minmax(0,1fr)]">
                         <span className="font-black">Lv{level.level}</span>
                         <span className="font-data">累計Lv{level.totalLevel}</span>
-                        <span className="min-w-0 break-words whitespace-normal [overflow-wrap:anywhere]">{level.effect || "未登録"}</span>
+                        <span className="min-w-0 break-words whitespace-pre-wrap [overflow-wrap:anywhere]">{(level.effects?.length ? level.effects.join("\n") : level.effect) || "未登録"}</span>
                       </div>
                     ))}
                   </div>

@@ -21,7 +21,13 @@ function normalizeLevels(levels: unknown) {
         0,
         Number(found?.totalLevel ?? 0) || 0,
       ),
-      effect: String(found?.effect ?? "").trim(),
+      effects: Array.isArray(found?.effects)
+        ? found.effects.map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+        : String(found?.effect ?? "").trim()
+            ? [String(found.effect).trim()]
+            : [],
+      // Keep the legacy field populated for older clients/data.
+      effect: String(found?.effect ?? (Array.isArray(found?.effects) ? found.effects[0] : "") ?? "").trim(),
     };
   });
 }

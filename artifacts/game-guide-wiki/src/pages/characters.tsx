@@ -21,6 +21,9 @@ type Character = {
   tier: string;
   imageUrl?: string;
   characterIconUrl?: string;
+  skills?: Array<{ name?: string; skillInfo?: string; description?: string; effectTags?: string[]; statusAilments?: string[] }>;
+  initialStars?: number;
+  stats?: { level100Overboost?: { totalPower?: number; hp?: number; attack?: number; defense?: number }; levelStats?: Array<{ totalPower: number; hp: number; attack: number; defense: number }> };
 };
 
 const roles = ["すべて", "アタッカー", "ゲッター", "ディフェンダー"] as const;
@@ -41,9 +44,9 @@ function CharacterCard({ character }: { character: Character }) {
   return (
     <Link
       href={`/characters/${character.id}`}
-      className="group flex overflow-hidden rounded-md border border-card-border bg-card shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
+      className="group flex min-w-0 overflow-hidden rounded-md border border-card-border bg-card shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
     >
-      <div className="relative aspect-square w-[132px] shrink-0 bg-secondary">
+      <div className="relative aspect-square w-24 shrink-0 bg-secondary sm:w-[132px]">
         {character.imageUrl ? (
           <img src={character.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -116,7 +119,8 @@ export default function CharactersPage() {
 
     return characters
       .filter((c) => {
-        const haystack = `${c.name} ${c.reading ?? ""} ${c.faction ?? ""} ${(c.tags ?? []).join(" ")}`.toLowerCase();
+        const skillSearchText = (c.skills ?? []).map((skill) => `${skill.name ?? ""} ${skill.skillInfo ?? ""} ${skill.description ?? ""} ${(skill.effectTags ?? []).join(" ")} ${(skill.statusAilments ?? []).join(" ")}`).join(" ");
+        const haystack = `${c.name} ${c.reading ?? ""} ${c.faction ?? ""} ${(c.tags ?? []).join(" ")} ${skillSearchText}`.toLowerCase();
         return (
           (!q || haystack.includes(q)) &&
           (role === "すべて" || c.role.base === role) &&
@@ -124,11 +128,26 @@ export default function CharactersPage() {
           (attribute === "すべて" || c.attribute.base === attribute)
         );
       })
-      .sort((a, b) =>
-        sort === "tier"
-          ? a.tier.localeCompare(b.tier)
-          : a.name.localeCompare(b.name, "ja"),
-      );
+      .sort((a, b) => {
+        const value = (c: Character, key: "totalPower" | "hp" | "attack" | "defense") => {
+          const stats = c.stats?.level100Overboost;
+          if (typeof stats?.[key] === "number") return stats[key] as number;
+          const rows = c.stats?.levelStats ?? [];
+          return rows.length ? Number(rows[rows.length - 1]?.[key] ?? 0) : 0;
+        };
+        switch (sort) {
+          case "attribute": return a.attribute.base.localeCompare(b.attribute.base, "ja");
+          case "rarity": return a.rarity.localeCompare(b.rarity, "ja");
+          case "role": return a.role.base.localeCompare(b.role.base, "ja");
+          case "tier": return a.tier.localeCompare(b.tier, "ja");
+          case "initialStars": return (b.initialStars ?? 0) - (a.initialStars ?? 0);
+          case "totalPower": return value(b, "totalPower") - value(a, "totalPower");
+          case "hp": return value(b, "hp") - value(a, "hp");
+          case "attack": return value(b, "attack") - value(a, "attack");
+          case "defense": return value(b, "defense") - value(a, "defense");
+          default: return a.name.localeCompare(b.name, "ja");
+        }
+      });
   }, [characters, query, role, rarity, attribute, sort]);
 
   return (
@@ -158,6 +177,12 @@ export default function CharactersPage() {
               />
               <span className="font-data text-[10px] text-muted-foreground">{filtered.length}件</span>
             </label>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <label className="text-[11px] font-bold text-muted-foreground" htmlFor="character-sort">並び替え</label>
+              <select id="character-sort" value={sort} onChange={(e) => setSort(e.target.value)} className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-2 text-xs sm:flex-none">
+                <option value="name">キャラ名</option><option value="attribute">属性</option><option value="rarity">初期グレード</option><option value="role">スタイル</option><option value="initialStars">初期★（降順）</option><option value="tier">評価ランク</option><option value="totalPower">総合力（降順）</option><option value="hp">体力（降順）</option><option value="attack">攻撃力（降順）</option><option value="defense">防御力（降順）</option>
+              </select>
+            </div>
             <div className="mt-3 flex gap-1.5 overflow-x-auto border-t border-border pt-3">
               {roles.map((item) => (
                 <button

@@ -12,7 +12,8 @@ const TOKEN_KEY = "opbr_access_token";
 type TagLevel = {
   level: number;
   totalLevel: number;
-  effect: string;
+  effects: string[];
+  effect?: string;
 };
 
 type Tag = {
@@ -35,7 +36,7 @@ function createEmptyLevels(): TagLevel[] {
   return Array.from({ length: 5 }, (_, index) => ({
     level: index + 1,
     totalLevel: 0,
-    effect: "",
+    effects: [],
   }));
 }
 
@@ -47,7 +48,11 @@ function normalizeLevels(levels?: TagLevel[]): TagLevel[] {
     return {
       level,
       totalLevel: found?.totalLevel ?? 0,
-      effect: found?.effect ?? "",
+      effects: Array.isArray((found as any)?.effects)
+        ? (found as any).effects
+        : found?.effect
+          ? [found.effect]
+          : [],
     };
   });
 }
@@ -162,8 +167,8 @@ export default function AdminCharacterTagsPage() {
 
   function updateLevel(
     index: number,
-    field: "totalLevel" | "effect",
-    value: string,
+    field: "totalLevel" | "effects",
+    value: string | string[],
   ) {
     setForm((current) => ({
       ...current,
@@ -185,7 +190,7 @@ export default function AdminCharacterTagsPage() {
 
         return {
           ...level,
-          effect: value,
+          effects: Array.isArray(value) ? value : level.effects,
         };
       }),
     }));
@@ -227,7 +232,7 @@ export default function AdminCharacterTagsPage() {
             levels: form.levels.map((level) => ({
               level: level.level,
               totalLevel: level.totalLevel,
-              effect: level.effect.trim(),
+              effect: (level.effect ?? "").trim(),
             })),
           }),
         },
@@ -468,25 +473,24 @@ export default function AdminCharacterTagsPage() {
                     />
                   </label>
 
-                  <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-bold">
-                      Lv{level.level}の効果
-                    </span>
-
-                    <textarea
-                      value={level.effect}
-                      onChange={(e) =>
-                        updateLevel(
-                          index,
-                          "effect",
-                          e.target.value,
-                        )
-                      }
-                      rows={2}
-                      className="w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-primary"
-                      placeholder={`Lv${level.level}で発動する効果`}
-                    />
-                  </label>
+                  <div className="min-w-0">
+                    <span className="mb-1.5 block text-[11px] font-bold">Lv{level.level}の効果（複数追加可）</span>
+                    <div className="space-y-2">
+                      {level.effects.map((effect, effectIndex) => (
+                        <div key={effectIndex} className="flex min-w-0 items-start gap-2">
+                          <textarea
+                            value={effect}
+                            onChange={(e) => updateLevel(index, "effects", level.effects.map((item, itemIndex) => itemIndex === effectIndex ? e.target.value : item))}
+                            rows={2}
+                            className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-primary"
+                            placeholder={`Lv${level.level}の効果 ${effectIndex + 1}`}
+                          />
+                          <button type="button" onClick={() => updateLevel(index, "effects", level.effects.filter((_, itemIndex) => itemIndex !== effectIndex))} className="rounded-md border border-border px-3 py-2 text-xs font-bold text-red-600" aria-label="効果を削除">削除</button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => updateLevel(index, "effects", [...level.effects, ""])} className="rounded-md border border-primary/40 px-3 py-2 text-xs font-bold text-primary">＋ 効果を追加</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -591,7 +595,8 @@ export default function AdminCharacterTagsPage() {
                             </div>
 
                             <div className="mt-1 whitespace-pre-line text-[10px] leading-5 text-muted-foreground">
-                              {level.effect || "効果未登録"}
+                              {(level.effects.length ? level.effects : []).map((effect, effectIndex) => <div key={effectIndex}>{effect || "（未入力）"}</div>)}
+                              {!level.effects.length && "効果未登録"}
                             </div>
                           </div>
                         ),
