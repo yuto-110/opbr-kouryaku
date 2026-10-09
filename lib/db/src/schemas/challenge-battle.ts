@@ -24,6 +24,7 @@ export interface IChallengeBattleScoreReward {
 export interface IChallengeBattle extends Document {
   id: string;
   name: string;
+  bannerImageUrl: string;
   startDate: Date;
   endDate: Date;
   overview: string;
@@ -68,6 +69,7 @@ const challengeBattleSchema = new Schema<IChallengeBattle>(
   {
     id: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true },
+    bannerImageUrl: { type: String, trim: true, default: "" },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     overview: { type: String, trim: true, default: "" },
