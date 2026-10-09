@@ -105,9 +105,15 @@ export default function AdminMedalsPage() {
 
   async function saveTag() {
     if (!tagForm.name.trim()) { setError("メダルタグ名を入力してください"); return; }
-    const response = await fetch(editingTagId ? `${API_BASE_URL}/admin/medal-tags/${editingTagId}` : `${API_BASE_URL}/admin/medal-tags`, { method: editingTagId ? "PUT" : "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(tagForm) });
-    if (!response.ok) { setError("メダルタグの保存に失敗しました"); return; }
-    setTagForm({ name: "", twoSetEffect: "", threeSetEffect: "" }); setEditingTagId(null); await load();
+    try {
+      const response = await fetch(editingTagId ? `${API_BASE_URL}/admin/medal-tags/${editingTagId}` : `${API_BASE_URL}/admin/medal-tags`, { method: editingTagId ? "PUT" : "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(tagForm) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message ?? "メダルタグの保存に失敗しました");
+      setError("");
+      setTagForm({ name: "", twoSetEffect: "", threeSetEffect: "" }); setEditingTagId(null); await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "メダルタグの保存に失敗しました");
+    }
   }
 
   async function remove(path: string) {

@@ -233,6 +233,7 @@ type Character = {
     imageUrl?: string;
     skillType?: SkillType;
     name: string;
+    skillInfo?: string;
     description: string;
     damageReductionIgnore?: boolean;
     defenseIgnore?: boolean;

@@ -117,8 +117,9 @@ router.post("/admin/medals", requireAuth, requireAdmin, async (req, res) => {
     const medal = await Medal.create({ ...input, id: newId("medal") });
     return res.status(201).json(medal);
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: "メダルの保存に失敗しました" });
+    console.error("[admin/medals] create failed:", error);
+    const detail = error instanceof Error ? error.message : "不明なエラー";
+    return res.status(400).json({ message: `メダルの保存に失敗しました: ${detail}` });
   }
 });
 
@@ -131,8 +132,9 @@ router.put("/admin/medals/:id", requireAuth, requireAdmin, async (req, res) => {
     if (!medal) return res.status(404).json({ message: "メダルが見つかりません" });
     return res.json(medal);
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: "メダルの更新に失敗しました" });
+    console.error("[admin/medals] update failed:", error);
+    const detail = error instanceof Error ? error.message : "不明なエラー";
+    return res.status(400).json({ message: `メダルの更新に失敗しました: ${detail}` });
   }
 });
 
@@ -155,8 +157,9 @@ router.post("/admin/medal-tags", requireAuth, requireAdmin, async (req, res) => 
     await connectDB();
     return res.status(201).json(await MedalTagMaster.create({ ...input, id: newId("medal-tag") }));
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: "メダルタグの保存に失敗しました" });
+    console.error("[admin/medal-tags] create failed:", error);
+    const detail = error instanceof Error ? error.message : "不明なエラー";
+    return res.status(400).json({ message: `メダルタグの保存に失敗しました: ${detail}` });
   }
 });
 
@@ -169,8 +172,9 @@ router.put("/admin/medal-tags/:id", requireAuth, requireAdmin, async (req, res) 
     if (!tag) return res.status(404).json({ message: "メダルタグが見つかりません" });
     return res.json(tag);
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: "メダルタグの更新に失敗しました" });
+    console.error("[admin/medal-tags] update failed:", error);
+    const detail = error instanceof Error ? error.message : "不明なエラー";
+    return res.status(400).json({ message: `メダルタグの更新に失敗しました: ${detail}` });
   }
 });
 
