@@ -25,6 +25,9 @@ import AdminMedalsPage from '@/pages/admin-medals';
 import MedalTagDetailPage from '@/pages/medal-tag-detail';
 import AuthPage from '@/pages/auth';
 import AdminPage from '@/pages/admin';
+import AdminChallengeBattlesPage from '@/pages/admin-challenge-battles';
+import ChallengeBattlesPage from '@/pages/challenge-battles';
+import ChallengeBattleDetailPage from '@/pages/challenge-battle-detail';
 
 import { type ReactNode } from 'react';
 
@@ -82,6 +85,16 @@ function Router() {
         />
 
         <Route
+          path="/challenge-battles"
+          component={ChallengeBattlesPage}
+        />
+
+        <Route
+          path="/challenge-battles/:id"
+          component={ChallengeBattleDetailPage}
+        />
+
+        <Route
           path="/support"
           component={SupportPage}
         />
@@ -129,6 +142,11 @@ function Router() {
         <Route
           path="/admin/medals"
           component={AdminMedalsPage}
+        />
+
+        <Route
+          path="/admin/challenge-battles"
+          component={AdminChallengeBattlesPage}
         />
 
         <Route component={NotFound} />

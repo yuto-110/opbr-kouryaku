@@ -119,6 +119,22 @@ export default function AdminPage() {
         </Link>
 
         <Link
+          href="/admin/challenge-battles"
+          className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="grid h-11 w-11 place-items-center rounded-md bg-rose-500/10 text-rose-600">
+              <Swords size={21} />
+            </div>
+            <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+          </div>
+          <h2 className="mt-5 text-lg font-black">チャレバト管理</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            チャレンジバトルの開催期間・ルール・スコア報酬と、報酬アイテムを登録・編集します。
+          </p>
+        </Link>
+
+        <Link
           href="/admin/characters"
           className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
         >

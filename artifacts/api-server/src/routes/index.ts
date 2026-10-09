@@ -9,6 +9,7 @@ import favoritesRouter from "./favorites";
 import characterTagsRouter from "./character-tags";
 import characterIconsRouter from "./character-icons";
 import medalsRouter from "./medals";
+import challengeBattlesRouter from "./challenge-battles";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(favoritesRouter);
 router.use(characterTagsRouter);
 router.use(characterIconsRouter);
 router.use(medalsRouter);
+router.use(challengeBattlesRouter);
 
 export default router;
