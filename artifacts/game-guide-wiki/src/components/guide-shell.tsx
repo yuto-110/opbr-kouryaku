@@ -8,7 +8,7 @@ const navItems = [
   { href: '/characters', label: 'キャラクター', icon: Swords },
   { href: '/medals', label: 'メダル', icon: Shield },
   { href: '/support', label: 'サポート編成', icon: Hammer },
-  { href: '/strategy', label: '攻略', icon: BookOpenText },
+  { href: '/challenge-battles', label: 'チャレンジバトル', icon: BookOpenText },
   { href: '/rankings', label: 'ランキング', icon: Trophy },
 ];
 
