@@ -10,6 +10,7 @@ const API_BASE_URL =
 type Battle = {
   id: string;
   name: string;
+  bannerImageUrl?: string;
   startDate: string;
   endDate: string;
   overview: string;
@@ -97,6 +98,14 @@ export default function ChallengeBattlesPage() {
                 href={`/challenge-battles/${encodeURIComponent(battle.id)}`}
                 className="group rounded-lg border border-card-border bg-card p-5 shadow-card transition hover:border-primary/40 hover:shadow-md"
               >
+                                {battle.bannerImageUrl ? (
+                  <img
+                    src={battle.bannerImageUrl}
+                    alt={`${battle.name}のバナー`}
+                    loading="lazy"
+                    className="mb-4 aspect-[16/9] w-full rounded-md border border-border object-contain bg-black/5"
+                  />
+                ) : null}
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <span className={`rounded-sm border px-2 py-1 text-xs font-bold ${status.style}`}>
                     {status.label}

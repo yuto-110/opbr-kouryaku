@@ -29,6 +29,7 @@ type ScoreReward = {
 type Battle = {
   id: string;
   name: string;
+  bannerImageUrl?: string;
   startDate: string;
   endDate: string;
   overview: string;
@@ -243,6 +244,15 @@ export default function ChallengeBattleDetailPage() {
         title={battle.name}
         description={battle.overview || "チャレンジバトルの開催情報と報酬一覧です。"}
       />
+            {battle.bannerImageUrl ? (
+        <div className="mb-6 overflow-hidden rounded-lg border border-card-border bg-card shadow-card">
+          <img
+            src={battle.bannerImageUrl}
+            alt={`${battle.name}のバナー`}
+            className="aspect-[16/9] w-full object-contain bg-black/5"
+          />
+        </div>
+      ) : null}
 
       <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
         <div className="mb-4">

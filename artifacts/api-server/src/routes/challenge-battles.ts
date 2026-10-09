@@ -28,6 +28,7 @@ function cleanBattleBody(body: any) {
 
   return {
     name: String(body?.name ?? "").trim(),
+    bannerImageUrl: String(body?.bannerImageUrl ?? "").trim(),
     startDate: new Date(body?.startDate),
     endDate: new Date(body?.endDate),
     overview: String(body?.overview ?? "").trim(),

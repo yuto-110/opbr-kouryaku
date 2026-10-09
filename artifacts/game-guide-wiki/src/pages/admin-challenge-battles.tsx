@@ -24,6 +24,7 @@ type ScoreReward = {
 type Battle = {
   id: string;
   name: string;
+  bannerImageUrl: string;
   startDate: string;
   endDate: string;
   overview: string;
@@ -38,6 +39,7 @@ type BattleForm = Omit<Battle, "id" | "active">;
 const emptyItem = (): ItemForm => ({ name: "", imageUrl: "", description: "" });
 const emptyBattle = (): BattleForm => ({
   name: "",
+  bannerImageUrl: "",
   startDate: "",
   endDate: "",
   overview: "",
@@ -74,6 +76,7 @@ export default function AdminChallengeBattlesPage() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingBattleId, setEditingBattleId] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -121,6 +124,24 @@ export default function AdminChallengeBattlesPage() {
     if (!response.ok) throw new Error(data?.message ?? "画像アップロードに失敗しました");
     return String(data.publicUrl ?? "");
   }
+
+    async function uploadBannerImage(file: File) {
+      const response = await fetch(`${API_BASE_URL}/uploads/github`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folder: "characters",
+          filename: `challenge-banner-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`,
+          contentType: file.type,
+          contentBase64: await fileToBase64(file),
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message ?? "バナー画像のアップロードに失敗しました");
+      }
+      return String(data.publicUrl ?? "");
+    }
 
   async function saveItem() {
     setError("");
@@ -179,6 +200,7 @@ export default function AdminChallengeBattlesPage() {
     setEditingBattleId(battle.id);
     setBattleForm({
       name: battle.name,
+      bannerImageUrl: battle.bannerImageUrl ?? "",
       startDate: toDateInput(battle.startDate),
       endDate: toDateInput(battle.endDate),
       overview: battle.overview ?? "",
@@ -235,23 +257,30 @@ export default function AdminChallengeBattlesPage() {
   async function saveBattle() {
     setError("");
     setMessage("");
+
     if (!battleForm.name.trim() || !battleForm.startDate || !battleForm.endDate) {
       setError("イベント名と開催期間を入力してください");
       return;
     }
+
     if (new Date(battleForm.endDate) < new Date(battleForm.startDate)) {
       setError("終了日時は開始日時以降にしてください");
       return;
     }
 
-    const payload = {
-      ...battleForm,
-      startDate: new Date(battleForm.startDate).toISOString(),
-      endDate: new Date(battleForm.endDate).toISOString(),
-      scoreRewards: [...battleForm.scoreRewards].sort((a, b) => a.score - b.score),
-    };
-
     try {
+      const bannerImageUrl = bannerImageFile
+        ? await uploadBannerImage(bannerImageFile)
+        : battleForm.bannerImageUrl;
+
+      const payload = {
+        ...battleForm,
+        bannerImageUrl,
+        startDate: new Date(battleForm.startDate).toISOString(),
+        endDate: new Date(battleForm.endDate).toISOString(),
+        scoreRewards: [...battleForm.scoreRewards].sort((a, b) => a.score - b.score),
+      };
+
       const response = await fetch(
         editingBattleId
           ? `${API_BASE_URL}/admin/challenge-battles/${editingBattleId}`
@@ -262,10 +291,15 @@ export default function AdminChallengeBattlesPage() {
           body: JSON.stringify(payload),
         },
       );
+
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message ?? "チャレバトの保存に失敗しました");
+      if (!response.ok) {
+        throw new Error(data?.message ?? "チャレバトの保存に失敗しました");
+      }
+
       setMessage("チャレバトを保存しました");
       setBattleForm(emptyBattle());
+      setBannerImageFile(null);
       setEditingBattleId(null);
       await load();
     } catch (reason) {
@@ -341,6 +375,31 @@ export default function AdminChallengeBattlesPage() {
           <label className="text-sm font-bold">イベント名
             <input value={battleForm.name} onChange={(e) => setBattleForm({ ...battleForm, name: e.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" />
           </label>
+                    <div className="text-sm font-bold md:col-span-2">
+            <label>
+              バナー画像
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                onChange={(e) => setBannerImageFile(e.target.files?.[0] ?? null)}
+                className="mt-1 block w-full rounded border border-border bg-background px-3 py-2"
+              />
+            </label>
+
+            {bannerImageFile ? (
+              <p className="mt-1 text-xs font-normal">
+                選択中：{bannerImageFile.name}
+              </p>
+            ) : null}
+
+            {battleForm.bannerImageUrl ? (
+              <img
+                src={battleForm.bannerImageUrl}
+                alt="チャレバトのバナー"
+                className="mt-3 max-h-48 w-full rounded border border-border object-contain"
+              />
+            ) : null}
+          </div>
           <label className="text-sm font-bold">開始日時
             <input type="datetime-local" value={battleForm.startDate} onChange={(e) => setBattleForm({ ...battleForm, startDate: e.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" />
           </label>
