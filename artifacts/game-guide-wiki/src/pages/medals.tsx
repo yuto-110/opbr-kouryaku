@@ -57,7 +57,25 @@ export default function MedalsPage() {
             <Search size={16} className="text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="メダル名、固有特性、タグで検索" className="w-full bg-transparent text-sm outline-none" data-testid="input-medal-search" />
           </label>
-          <div className="mt-3 rounded-md border border-card-border bg-card p-3"><div className="mb-2 text-xs font-bold">メダルタグで絞り込み</div><div className="flex flex-wrap gap-2">{tags.map((tag) => <Link key={tag.id} href={`/medal-tags/${tag.id}`} className={`rounded border px-2 py-1 text-xs ${selectedTags.includes(tag.id) ? "border-primary bg-primary text-white" : "border-border"}`} onClick={(event) => { event.preventDefault(); setSelectedTags((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id]); }}>{tag.name}</Link>)}</div></div>
+          <div className="mt-3 rounded-md border border-card-border bg-card p-3">
+  <label className="block text-xs font-bold">
+    メダルタグで絞り込み
+    <select
+      value={selectedTags[0] ?? ""}
+      onChange={(event) => {
+        setSelectedTags(event.target.value ? [event.target.value] : []);
+      }}
+      className="mt-2 w-full rounded border border-border bg-background p-2 text-sm"
+    >
+      <option value="">すべてのタグ</option>
+      {tags.map((tag) => (
+        <option key={tag.id} value={tag.id}>
+          {tag.name}
+        </option>
+      ))}
+    </select>
+  </label>
+</div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">{filtered.map((medal) => <MedalCard key={medal.id} medal={medal} tags={tags} />)}</div>
           {!filtered.length ? <div className="mt-4"><EmptyState label="登録されたメダルがありません" /></div> : null}
         </div>

@@ -232,8 +232,10 @@ export default function AdminCharacterTagsPage() {
             levels: form.levels.map((level) => ({
               level: level.level,
               totalLevel: level.totalLevel,
-              effect: (level.effect ?? "").trim(),
-            })),
+              effects: level.effects
+                .map((effect) => effect.trim())
+                .filter(Boolean),
+           })),
           }),
         },
       );

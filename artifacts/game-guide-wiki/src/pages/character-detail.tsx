@@ -228,7 +228,7 @@ function SkillGroup({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-black leading-7 [overflow-wrap:anywhere] sm:text-base">
+              <div className="min-w-0 w-full whitespace-pre-wrap break-words text-sm font-black leading-7 [overflow-wrap:anywhere] sm:text-base">
                 {active.skillInfo || "スキル情報未登録"}
               </div>
 

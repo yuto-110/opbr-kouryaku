@@ -19,6 +19,10 @@ const CharacterTagLevelSchema = new Schema(
       trim: true,
       default: "",
     },
+    effects: {
+      type: [String],
+      default: undefined,
+    },
   },
   { _id: false },
 );
