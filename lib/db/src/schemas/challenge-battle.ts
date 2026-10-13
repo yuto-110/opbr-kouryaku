@@ -15,10 +15,21 @@ export interface IChallengeBattleReward {
   quantity: number;
 }
 
+
 export interface IChallengeBattleScoreReward {
   score: number;
   normalRewards: IChallengeBattleReward[];
-  passRewards: IChallengeBattleReward[];
+  passLiteRewards: IChallengeBattleReward[];
+  passPremiumRewards: IChallengeBattleReward[];
+
+  // 既存データとの互換性を保つために残す
+  passRewards?: IChallengeBattleReward[];
+}
+
+export interface IChallengeBattleRankingReward {
+  rankFrom: number;
+  rankTo: number;
+  rewards: IChallengeBattleReward[];
 }
 
 export interface IChallengeBattle extends Document {
@@ -30,10 +41,12 @@ export interface IChallengeBattle extends Document {
   overview: string;
   rules: string;
   scoreRewards: IChallengeBattleScoreReward[];
+  rankingRewards: IChallengeBattleRankingReward[];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
+
 
 const challengeRewardItemSchema = new Schema<IChallengeRewardItem>(
   {
@@ -60,7 +73,17 @@ const challengeBattleScoreRewardSchema = new Schema<IChallengeBattleScoreReward>
   {
     score: { type: Number, required: true, min: 0 },
     normalRewards: { type: [challengeBattleRewardSchema], default: [] },
-    passRewards: { type: [challengeBattleRewardSchema], default: [] },
+    passLiteRewards: { type: [challengeBattleRewardSchema], default: [] },
+    passPremiumRewards: { type: [challengeBattleRewardSchema], default: [] },
+  },
+  { _id: false },
+);
+
+const challengeBattleRankingRewardSchema = new Schema<IChallengeBattleRankingReward>(
+  {
+    rankFrom: { type: Number, min: 1, required: true },
+    rankTo: { type: Number, min: 1, required: true },
+    rewards: { type: [challengeBattleRewardSchema], default: [] },
   },
   { _id: false },
 );
@@ -75,6 +98,7 @@ const challengeBattleSchema = new Schema<IChallengeBattle>(
     overview: { type: String, trim: true, default: "" },
     rules: { type: String, trim: true, default: "" },
     scoreRewards: { type: [challengeBattleScoreRewardSchema], default: [] },
+    rankingRewards: { type: [challengeBattleRankingRewardSchema], default: [] },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },

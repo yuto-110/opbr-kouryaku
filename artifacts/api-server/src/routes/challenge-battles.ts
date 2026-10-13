@@ -17,12 +17,29 @@ function cleanRewardList(value: unknown) {
   }));
 }
 
+
+
 function cleanBattleBody(body: any) {
   const scoreRewards = Array.isArray(body?.scoreRewards)
     ? body.scoreRewards.map((entry: any) => ({
         score: Number(entry?.score),
         normalRewards: cleanRewardList(entry?.normalRewards),
+        passLiteRewards: cleanRewardList(
+          entry?.passLiteRewards,
+        ),
+        passPremiumRewards: cleanRewardList(
+          entry?.passPremiumRewards,
+        ),
+        // 旧データとの互換性用
         passRewards: cleanRewardList(entry?.passRewards),
+      }))
+    : [];
+
+  const rankingRewards = Array.isArray(body?.rankingRewards)
+    ? body.rankingRewards.map((entry: any) => ({
+        rankFrom: Number(entry?.rankFrom),
+        rankTo: Number(entry?.rankTo),
+        rewards: cleanRewardList(entry?.rewards),
       }))
     : [];
 
@@ -34,29 +51,82 @@ function cleanBattleBody(body: any) {
     overview: String(body?.overview ?? "").trim(),
     rules: String(body?.rules ?? "").trim(),
     scoreRewards,
+    rankingRewards,
     active: body?.active !== false,
   };
 }
 
+
+
+
 function validateBattle(input: ReturnType<typeof cleanBattleBody>) {
   if (!input.name) return "イベント名を入力してください";
-  if (Number.isNaN(input.startDate.getTime()) || Number.isNaN(input.endDate.getTime())) {
+
+  if (
+    Number.isNaN(input.startDate.getTime()) ||
+    Number.isNaN(input.endDate.getTime())
+  ) {
     return "開催期間を正しく入力してください";
   }
-  if (input.endDate < input.startDate) return "終了日は開始日以降にしてください";
+
+  if (input.endDate < input.startDate) {
+    return "終了日は開始日以降にしてください";
+  }
 
   for (const tier of input.scoreRewards) {
     if (!Number.isFinite(tier.score) || tier.score < 0) {
       return "スコア報酬のスコアは0以上で入力してください";
     }
-    for (const reward of [...tier.normalRewards, ...tier.passRewards]) {
-      if (!reward.itemId || !Number.isInteger(reward.quantity) || reward.quantity < 1) {
+
+    const rewards = [
+      ...tier.normalRewards,
+      ...tier.passLiteRewards,
+      ...tier.passPremiumRewards,
+      ...tier.passRewards,
+    ];
+
+
+    for (const reward of [
+      ...tier.normalRewards,
+      ...tier.passLiteRewards,
+      ...tier.passPremiumRewards,
+      ...(tier.passRewards ?? []),
+    ]) {
+      if (
+        !reward.itemId ||
+        !Number.isInteger(reward.quantity) ||
+        reward.quantity < 1
+      ) {
         return "報酬アイテムと1以上の個数を正しく入力してください";
       }
     }
   }
+
+  for (const ranking of input.rankingRewards) {
+    if (
+      !Number.isInteger(ranking.rankFrom) ||
+      !Number.isInteger(ranking.rankTo) ||
+      ranking.rankFrom < 1 ||
+      ranking.rankTo < ranking.rankFrom
+    ) {
+      return "ランキング順位の範囲を正しく入力してください";
+    }
+
+    for (const reward of ranking.rewards) {
+      if (
+        !reward.itemId ||
+        !Number.isInteger(reward.quantity) ||
+        reward.quantity < 1
+      ) {
+        return "ランキング報酬のアイテムと個数を正しく入力してください";
+      }
+    }
+  }
+
   return null;
 }
+
+
 
 function cleanItemBody(body: any) {
   return {
@@ -67,21 +137,64 @@ function cleanItemBody(body: any) {
   };
 }
 
+
 async function hydrateBattle(battle: any) {
-  const data = typeof battle?.toObject === "function" ? battle.toObject() : battle;
+  const data =
+    typeof battle?.toObject === "function" ? battle.toObject() : battle;
+
+
   const itemIds = new Set<string>();
+
   for (const tier of data.scoreRewards ?? []) {
-    for (const reward of [...(tier.normalRewards ?? []), ...(tier.passRewards ?? [])]) {
+    for (const reward of [
+      ...(tier.normalRewards ?? []),
+      ...(tier.passLiteRewards ?? []),
+      ...(tier.passPremiumRewards ?? []),
+      ...(tier.passRewards ?? []),
+    ]) {
       if (reward.itemId) itemIds.add(reward.itemId);
     }
   }
-  const items = await ChallengeRewardItem.find({ id: { $in: [...itemIds] } }).lean();
+
+  for (const ranking of data.rankingRewards ?? []) {
+    for (const reward of ranking.rewards ?? []) {
+      if (reward.itemId) itemIds.add(reward.itemId);
+    }
+  }
+
+
+  for (const tier of data.rankingRewards ?? []) {
+    for (const reward of tier.rewards ?? []) {
+      if (reward.itemId) itemIds.add(reward.itemId);
+    }
+  }
+
+  const items = await ChallengeRewardItem.find({
+    id: { $in: [...itemIds] },
+  }).lean();
+
   const itemMap = new Map(items.map((item) => [item.id, item]));
+
+  const hydrateRewards = (rewards: any[] = []) =>
+    rewards.map((reward) => ({
+      ...reward,
+      item: itemMap.get(reward.itemId) ?? null,
+    }));
+
   return {
     ...data,
+
     scoreRewards: (data.scoreRewards ?? []).map((tier: any) => ({
       ...tier,
       normalRewards: (tier.normalRewards ?? []).map((reward: any) => ({
+        ...reward,
+        item: itemMap.get(reward.itemId) ?? null,
+      })),
+      passLiteRewards: (tier.passLiteRewards ?? []).map((reward: any) => ({
+        ...reward,
+        item: itemMap.get(reward.itemId) ?? null,
+      })),
+      passPremiumRewards: (tier.passPremiumRewards ?? []).map((reward: any) => ({
         ...reward,
         item: itemMap.get(reward.itemId) ?? null,
       })),
@@ -90,8 +203,16 @@ async function hydrateBattle(battle: any) {
         item: itemMap.get(reward.itemId) ?? null,
       })),
     })),
+    rankingRewards: (data.rankingRewards ?? []).map((ranking: any) => ({
+      ...ranking,
+      rewards: (ranking.rewards ?? []).map((reward: any) => ({
+        ...reward,
+        item: itemMap.get(reward.itemId) ?? null,
+      })),
+    })),
   };
 }
+
 
 // 公開API：終了済みイベントも一覧・詳細で閲覧できる
 router.get("/challenge-battles", async (_req, res) => {
@@ -175,14 +296,32 @@ router.post("/admin/challenge-battles", requireAuth, requireAdmin, async (req, r
     if (validation) return res.status(400).json({ message: validation });
     await connectDB();
 
-    const itemIds = input.scoreRewards.flatMap((tier: { score: number; normalRewards: { itemId: string; quantity: number }[]; passRewards: { itemId: string; quantity: number }[] }) =>
-      [...tier.normalRewards, ...tier.passRewards].map((reward) => reward.itemId),
-    );
-    const existingItems = await ChallengeRewardItem.find({ id: { $in: itemIds }, active: true }).select("id").lean();
+    const itemIds: string[] = [
+      ...input.scoreRewards.flatMap((tier: any) => [
+        ...tier.normalRewards,
+        ...tier.passLiteRewards,
+        ...tier.passPremiumRewards,
+        ...(tier.passRewards ?? []),
+      ].map((reward: any) => reward.itemId)),
+      ...input.rankingRewards.flatMap((ranking: any) =>
+        ranking.rewards.map((reward: any) => reward.itemId),
+      ),
+    ];
+
+
+    const existingItems = await ChallengeRewardItem.find({
+      id: { $in: itemIds },
+      active: true,
+    }).select("id").lean();
+
     const existingIds = new Set(existingItems.map((item) => item.id));
-    if (itemIds.some((id: string) => !existingIds.has(id))) {
-      return res.status(400).json({ message: "登録済みの有効な報酬アイテムを選択してください" });
+
+    if (itemIds.some((id) => !existingIds.has(id))) {
+      return res.status(400).json({
+        message: "登録済みの有効な報酬アイテムを選択してください",
+      });
     }
+
 
     const battle = await ChallengeBattle.create({ ...input, id: newId("challenge-battle") });
     return res.status(201).json(await hydrateBattle(battle));
@@ -199,14 +338,34 @@ router.put("/admin/challenge-battles/:id", requireAuth, requireAdmin, async (req
     if (validation) return res.status(400).json({ message: validation });
     await connectDB();
 
-    const itemIds = input.scoreRewards.flatMap((tier: { score: number; normalRewards: { itemId: string; quantity: number }[]; passRewards: { itemId: string; quantity: number }[] }) =>
-      [...tier.normalRewards, ...tier.passRewards].map((reward) => reward.itemId),
-    );
-    const existingItems = await ChallengeRewardItem.find({ id: { $in: itemIds }, active: true }).select("id").lean();
+
+
+    const itemIds: string[] = [
+      ...input.scoreRewards.flatMap((tier: any) => [
+        ...tier.normalRewards,
+        ...tier.passLiteRewards,
+        ...tier.passPremiumRewards,
+        ...(tier.passRewards ?? []),
+      ].map((reward: any) => reward.itemId)),
+      ...input.rankingRewards.flatMap((ranking: any) =>
+        ranking.rewards.map((reward: any) => reward.itemId),
+      ),
+    ];
+
+
+    const existingItems = await ChallengeRewardItem.find({
+      id: { $in: itemIds },
+      active: true,
+    }).select("id").lean();
+
     const existingIds = new Set(existingItems.map((item) => item.id));
-    if (itemIds.some((id: string) => !existingIds.has(id))) {
-      return res.status(400).json({ message: "登録済みの有効な報酬アイテムを選択してください" });
+
+    if (itemIds.some((id) => !existingIds.has(id))) {
+      return res.status(400).json({
+        message: "登録済みの有効な報酬アイテムを選択してください",
+      });
     }
+
 
     const battle = await ChallengeBattle.findOneAndUpdate(
       { id: req.params.id }, input, { new: true, runValidators: true },
