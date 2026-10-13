@@ -24,14 +24,13 @@ function cleanBattleBody(body: any) {
     ? body.scoreRewards.map((entry: any) => ({
         score: Number(entry?.score),
         normalRewards: cleanRewardList(entry?.normalRewards),
+        // 旧データの passRewards は Lite 報酬として取り込む
         passLiteRewards: cleanRewardList(
-          entry?.passLiteRewards,
+          Array.isArray(entry?.passLiteRewards) && entry.passLiteRewards.length > 0
+            ? entry.passLiteRewards
+            : entry?.passRewards,
         ),
-        passPremiumRewards: cleanRewardList(
-          entry?.passPremiumRewards,
-        ),
-        // 旧データとの互換性用
-        passRewards: cleanRewardList(entry?.passRewards),
+        passPremiumRewards: cleanRewardList(entry?.passPremiumRewards),
       }))
     : [];
 
@@ -78,19 +77,10 @@ function validateBattle(input: ReturnType<typeof cleanBattleBody>) {
       return "スコア報酬のスコアは0以上で入力してください";
     }
 
-    const rewards = [
-      ...tier.normalRewards,
-      ...tier.passLiteRewards,
-      ...tier.passPremiumRewards,
-      ...tier.passRewards,
-    ];
-
-
     for (const reward of [
       ...tier.normalRewards,
       ...tier.passLiteRewards,
       ...tier.passPremiumRewards,
-      ...(tier.passRewards ?? []),
     ]) {
       if (
         !reward.itemId ||
@@ -163,23 +153,11 @@ async function hydrateBattle(battle: any) {
   }
 
 
-  for (const tier of data.rankingRewards ?? []) {
-    for (const reward of tier.rewards ?? []) {
-      if (reward.itemId) itemIds.add(reward.itemId);
-    }
-  }
-
   const items = await ChallengeRewardItem.find({
     id: { $in: [...itemIds] },
   }).lean();
 
   const itemMap = new Map(items.map((item) => [item.id, item]));
-
-  const hydrateRewards = (rewards: any[] = []) =>
-    rewards.map((reward) => ({
-      ...reward,
-      item: itemMap.get(reward.itemId) ?? null,
-    }));
 
   return {
     ...data,
@@ -190,15 +168,11 @@ async function hydrateBattle(battle: any) {
         ...reward,
         item: itemMap.get(reward.itemId) ?? null,
       })),
-      passLiteRewards: (tier.passLiteRewards ?? []).map((reward: any) => ({
+      passLiteRewards: ((tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards) ?? []).map((reward: any) => ({
         ...reward,
         item: itemMap.get(reward.itemId) ?? null,
       })),
       passPremiumRewards: (tier.passPremiumRewards ?? []).map((reward: any) => ({
-        ...reward,
-        item: itemMap.get(reward.itemId) ?? null,
-      })),
-      passRewards: (tier.passRewards ?? []).map((reward: any) => ({
         ...reward,
         item: itemMap.get(reward.itemId) ?? null,
       })),
@@ -301,7 +275,6 @@ router.post("/admin/challenge-battles", requireAuth, requireAdmin, async (req, r
         ...tier.normalRewards,
         ...tier.passLiteRewards,
         ...tier.passPremiumRewards,
-        ...(tier.passRewards ?? []),
       ].map((reward: any) => reward.itemId)),
       ...input.rankingRewards.flatMap((ranking: any) =>
         ranking.rewards.map((reward: any) => reward.itemId),
@@ -345,7 +318,6 @@ router.put("/admin/challenge-battles/:id", requireAuth, requireAdmin, async (req
         ...tier.normalRewards,
         ...tier.passLiteRewards,
         ...tier.passPremiumRewards,
-        ...(tier.passRewards ?? []),
       ].map((reward: any) => reward.itemId)),
       ...input.rankingRewards.flatMap((ranking: any) =>
         ranking.rewards.map((reward: any) => reward.itemId),

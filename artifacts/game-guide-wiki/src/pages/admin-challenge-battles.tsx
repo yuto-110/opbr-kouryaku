@@ -289,7 +289,7 @@ export default function AdminChallengeBattlesPage() {
         score: tier.score,
         normalRewards: normalizeRewards(tier.normalRewards),
         passLiteRewards: normalizeRewards(
-          tier.passLiteRewards ?? tier.passRewards,
+          tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards,
         ),
         passPremiumRewards: normalizeRewards(tier.passPremiumRewards),
       })),
@@ -963,6 +963,30 @@ export default function AdminChallengeBattlesPage() {
           </label>
         </div>
 
+        <h3 className="mt-7 text-base font-black">スコア報酬の合計</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          すべてのスコア段階に登録された報酬をアイテムごとに合算します。
+        </p>
+
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          {renderTotals("通常報酬の合計", totals("normalRewards"))}
+          {renderTotals("Lite報酬の合計", totals("passLiteRewards"))}
+          {renderTotals("Premium報酬の合計", totals("passPremiumRewards"))}
+          {renderTotals(
+            "有料パス報酬の合計（Lite＋Premium）",
+            combinedTotals(["passLiteRewards", "passPremiumRewards"]),
+          )}
+          {renderTotals(
+            "全報酬の合計",
+            combinedTotals([
+              "normalRewards",
+              "passLiteRewards",
+              "passPremiumRewards",
+            ]),
+          )}
+        </div>
+
+
         <div className="mt-6 flex items-center justify-between gap-3">
           <h3 className="text-base font-black">スコア別報酬</h3>
           <button
@@ -1066,29 +1090,6 @@ export default function AdminChallengeBattlesPage() {
             ))}
           </div>
         ))}
-
-        <h3 className="mt-7 text-base font-black">スコア報酬の合計</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          すべてのスコア段階に登録された報酬をアイテムごとに合算します。
-        </p>
-
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-          {renderTotals("通常報酬の合計", totals("normalRewards"))}
-          {renderTotals("Lite報酬の合計", totals("passLiteRewards"))}
-          {renderTotals("Premium報酬の合計", totals("passPremiumRewards"))}
-          {renderTotals(
-            "有料パス報酬の合計（Lite＋Premium）",
-            combinedTotals(["passLiteRewards", "passPremiumRewards"]),
-          )}
-          {renderTotals(
-            "全報酬の合計",
-            combinedTotals([
-              "normalRewards",
-              "passLiteRewards",
-              "passPremiumRewards",
-            ]),
-          )}
-        </div>
 
         <div className="mt-8 flex items-center justify-between gap-3">
           <h3 className="text-base font-black">ランキング報酬</h3>

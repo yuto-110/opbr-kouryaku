@@ -75,6 +75,8 @@ const challengeBattleScoreRewardSchema = new Schema<IChallengeBattleScoreReward>
     normalRewards: { type: [challengeBattleRewardSchema], default: [] },
     passLiteRewards: { type: [challengeBattleRewardSchema], default: [] },
     passPremiumRewards: { type: [challengeBattleRewardSchema], default: [] },
+    // 旧データの読み取り用。API側で passLiteRewards に正規化する。
+    passRewards: { type: [challengeBattleRewardSchema], default: undefined },
   },
   { _id: false },
 );

@@ -23,7 +23,15 @@ type Reward = {
 type ScoreReward = {
   score: number;
   normalRewards: Reward[];
-  passRewards: Reward[];
+  passLiteRewards?: Reward[];
+  passPremiumRewards?: Reward[];
+  passRewards?: Reward[];
+};
+
+type RankingReward = {
+  rankFrom: number;
+  rankTo: number;
+  rewards: Reward[];
 };
 
 type Battle = {
@@ -35,6 +43,7 @@ type Battle = {
   overview: string;
   rules: string;
   scoreRewards: ScoreReward[];
+  rankingRewards?: RankingReward[];
 };
 
 function formatDate(value: string) {
@@ -105,20 +114,25 @@ function RewardList({ title, rewards }: { title: string; rewards: Reward[] }) {
   );
 }
 
-function RewardTotals({ title, scoreRewards, field }: {
+function RewardTotals({ title, scoreRewards, fields }: {
   title: string;
   scoreRewards: ScoreReward[];
-  field: "normalRewards" | "passRewards";
+  fields: ("normalRewards" | "passLiteRewards" | "passPremiumRewards" | "passRewards")[];
 }) {
   const totals = new Map<string, { item: RewardItem | null | undefined; quantity: number }>();
 
   for (const tier of scoreRewards) {
-    for (const reward of tier[field] ?? []) {
-      const current = totals.get(reward.itemId);
-      totals.set(reward.itemId, {
-        item: reward.item ?? current?.item,
-        quantity: (current?.quantity ?? 0) + reward.quantity,
-      });
+    for (const field of fields) {
+      const rewards = field === "passLiteRewards"
+        ? (tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards ?? [])
+        : (tier[field] ?? []);
+      for (const reward of rewards) {
+        const current = totals.get(reward.itemId);
+        totals.set(reward.itemId, {
+          item: reward.item ?? current?.item,
+          quantity: (current?.quantity ?? 0) + reward.quantity,
+        });
+      }
     }
   }
 
@@ -301,7 +315,8 @@ export default function ChallengeBattleDetailPage() {
                 </h3>
                 <div className="grid gap-4 xl:grid-cols-2">
                   <RewardList title="通常報酬" rewards={tier.normalRewards ?? []} />
-                  <RewardList title="パス報酬" rewards={tier.passRewards ?? []} />
+                  <RewardList title="Event Pass Lite報酬" rewards={tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards ?? []} />
+                  <RewardList title="Event Pass Premium報酬" rewards={tier.passPremiumRewards ?? []} />
                 </div>
               </section>
             ))}
@@ -312,9 +327,36 @@ export default function ChallengeBattleDetailPage() {
       <section className="mt-8">
         <h2 className="mb-4 text-xl font-black">報酬の合計</h2>
         <div className="grid gap-4 xl:grid-cols-2">
-          <RewardTotals title="通常報酬の合計" scoreRewards={scoreRewards} field="normalRewards" />
-          <RewardTotals title="パス報酬の合計" scoreRewards={scoreRewards} field="passRewards" />
+          <RewardTotals title="通常報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards"]} />
+          <RewardTotals title="Event Pass Lite報酬の合計" scoreRewards={scoreRewards} fields={["passLiteRewards"]} />
+          <RewardTotals title="Event Pass Premium報酬の合計" scoreRewards={scoreRewards} fields={["passPremiumRewards"]} />
+          <RewardTotals title="有料パス報酬の合計（Lite＋Premium）" scoreRewards={scoreRewards} fields={["passLiteRewards", "passPremiumRewards"]} />
+          <RewardTotals title="全報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards", "passLiteRewards", "passPremiumRewards"]} />
         </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-xl font-black">ランキング報酬</h2>
+        {(battle.rankingRewards ?? []).length === 0 ? (
+          <div className="rounded-md border border-card-border bg-card p-5 text-sm text-muted-foreground">
+            ランキング報酬はまだ登録されていません。
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {[...(battle.rankingRewards ?? [])]
+              .sort((a, b) => a.rankFrom - b.rankFrom || a.rankTo - b.rankTo)
+              .map((ranking, index) => (
+                <section key={`${ranking.rankFrom}-${ranking.rankTo}-${index}`} className="rounded-md border border-card-border bg-card p-5 shadow-card">
+                  <h3 className="mb-4 text-lg font-black">
+                    {ranking.rankFrom === ranking.rankTo
+                      ? `${ranking.rankFrom.toLocaleString("ja-JP")}位`
+                      : `${ranking.rankFrom.toLocaleString("ja-JP")}〜${ranking.rankTo.toLocaleString("ja-JP")}位`}
+                  </h3>
+                  <RewardList title="順位報酬" rewards={ranking.rewards ?? []} />
+                </section>
+              ))}
+          </div>
+        )}
       </section>
     </GuideShell>
   );
