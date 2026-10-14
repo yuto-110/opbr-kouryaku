@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Bookmark, BookOpenText, ChevronRight, CircleUserRound, Compass, Database, ExternalLink, Hammer, Home, Menu, Search, Shield, Swords, Trophy, X } from 'lucide-react';
+import { Bookmark, BookOpenText, ChevronRight, CircleUserRound, Compass, Database, ExternalLink, Hammer, Home, Menu, Search, Settings, Shield, Swords, Trophy, X } from 'lucide-react';
 import type { Character, Medal } from '@/data/mockData';
 
 const navItems = [
@@ -18,7 +18,7 @@ export function GuideShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell bg-background">
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-sm lg:hidden">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur-sm lg:hidden">
         <div className="flex h-16 w-full items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2" data-testid="link-mobile-logo">
             <BrandMark small />
@@ -29,9 +29,10 @@ export function GuideShell({ children }: { children: ReactNode }) {
           </button>
         </div>
         {mobileOpen && (
-          <nav className="border-t border-border bg-white px-3 py-3">
+          <nav className="border-t border-sidebar-border bg-sidebar px-3 py-3">
             {navItems.map((item) => <NavItem key={item.href} {...item} active={location === item.href} mobile onNavigate={() => setMobileOpen(false)} />)}
             <NavItem href="/mypage" label="マイページ" icon={CircleUserRound} active={location === '/mypage'} mobile onNavigate={() => setMobileOpen(false)} />
+            <NavItem href="/settings" label="設定" icon={Settings} active={location === '/settings'} mobile onNavigate={() => setMobileOpen(false)} />
           </nav>
         )}
       </header>
@@ -55,6 +56,7 @@ export function GuideShell({ children }: { children: ReactNode }) {
         <div className="mt-9 px-4">
           <p className="data-label mb-3 px-3 text-slate-500">PERSONAL</p>
           <NavItem href="/mypage" label="マイページ" icon={CircleUserRound} active={location === '/mypage'} />
+          <NavItem href="/settings" label="設定" icon={Settings} active={location === '/settings'} />
           <Link href="/mypage" className="app-link mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white" data-testid="link-bookmarks">
             <Bookmark size={17} /> ブックマーク
           </Link>
@@ -89,7 +91,7 @@ function NavItem({ href, label, icon: Icon, active, mobile, onNavigate }: { href
 function Topbar() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState('');
-  return <div className="hidden h-[72px] items-center justify-between border-b border-border bg-white px-10 lg:flex">
+  return <div className="hidden h-[72px] items-center justify-between border-b border-border bg-card px-10 lg:flex">
     <div className="font-data text-[10px] tracking-[.16em] text-muted-foreground">HADO DATABASE <span className="mx-2 text-border">/</span> LIVE GUIDE</div>
     <div className="flex items-center gap-5">
       <label className="flex h-9 w-[280px] items-center gap-2 rounded-md border border-border bg-background px-3 text-muted-foreground focus-within:border-primary">

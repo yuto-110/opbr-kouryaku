@@ -3,6 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // 初回描画前にテーマを適用（ちらつき防止）。ロジックは src/lib/theme.ts と同じ。
+      (function () {
+        try {
+          var t = localStorage.getItem('opbr_theme');
+          var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
     <title>Game Guide Wiki</title>
     <meta name="description" content="Game Guide Wiki — built on Replit. Update this description to reflect the app." />
     <meta name="robots" content="index, follow" />

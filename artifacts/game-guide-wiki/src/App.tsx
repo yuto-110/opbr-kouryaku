@@ -28,6 +28,7 @@ import AdminPage from '@/pages/admin';
 import AdminChallengeBattlesPage from '@/pages/admin-challenge-battles';
 import ChallengeBattlesPage from '@/pages/challenge-battles';
 import ChallengeBattleDetailPage from '@/pages/challenge-battle-detail';
+import SettingsPage from '@/pages/settings';
 
 import { type ReactNode } from 'react';
 
@@ -112,6 +113,11 @@ function Router() {
         <Route
           path="/mypage"
           component={MyPage}
+        />
+
+        <Route
+          path="/settings"
+          component={SettingsPage}
         />
 
         <Route

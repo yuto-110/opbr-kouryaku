@@ -46,6 +46,25 @@ type Battle = {
   rankingRewards?: RankingReward[];
 };
 
+function hasRewards(rewards?: Reward[] | null): rewards is Reward[] {
+  return Array.isArray(rewards) && rewards.length > 0;
+}
+
+// イベントパスライトの報酬。新形式が空のときだけ旧形式 passRewards を使う（既存データとの互換用）
+function getLiteRewards(tier: ScoreReward): Reward[] {
+  if (hasRewards(tier.passLiteRewards)) return tier.passLiteRewards;
+  if (hasRewards(tier.passRewards)) return tier.passRewards;
+  return [];
+}
+
+function getTierRewards(tier: ScoreReward) {
+  return {
+    normal: hasRewards(tier.normalRewards) ? tier.normalRewards : [],
+    lite: getLiteRewards(tier),
+    premium: hasRewards(tier.passPremiumRewards) ? tier.passPremiumRewards : [],
+  };
+}
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "日時未設定";
@@ -117,14 +136,14 @@ function RewardList({ title, rewards }: { title: string; rewards: Reward[] }) {
 function RewardTotals({ title, scoreRewards, fields }: {
   title: string;
   scoreRewards: ScoreReward[];
-  fields: ("normalRewards" | "passLiteRewards" | "passPremiumRewards" | "passRewards")[];
+  fields: ("normalRewards" | "passLiteRewards" | "passPremiumRewards")[];
 }) {
   const totals = new Map<string, { item: RewardItem | null | undefined; quantity: number }>();
 
   for (const tier of scoreRewards) {
     for (const field of fields) {
       const rewards = field === "passLiteRewards"
-        ? (tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards ?? [])
+        ? getLiteRewards(tier)
         : (tier[field] ?? []);
       for (const reward of rewards) {
         const current = totals.get(reward.itemId);
@@ -140,39 +159,38 @@ function RewardTotals({ title, scoreRewards, fields }: {
     (a[1].item?.name ?? a[0]).localeCompare(b[1].item?.name ?? b[0], "ja"),
   );
 
+  // 報酬が1件もない種類（例：プレミアムが最初から無い）は欄ごと表示しない
+  if (entries.length === 0) return null;
+
   return (
     <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
       <h3 className="mb-4 text-base font-black">{title}</h3>
-      {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">報酬は登録されていません。</p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {entries.map(([itemId, entry]) => (
-            <div key={itemId} className="flex items-center gap-3 rounded-md bg-secondary/60 p-3">
-              {entry.item?.imageUrl ? (
-                <img
-                  src={entry.item.imageUrl}
-                  alt={entry.item.name}
-                  className="h-10 w-10 shrink-0 rounded object-contain"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded bg-background">
-                  <Gift size={18} />
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="break-words text-sm font-bold">
-                  {entry.item?.name ?? "登録済みアイテム"}
-                </p>
-                <p className="text-xs font-bold text-primary">
-                  合計 × {entry.quantity.toLocaleString("ja-JP")}
-                </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {entries.map(([itemId, entry]) => (
+          <div key={itemId} className="flex items-center gap-3 rounded-md bg-secondary/60 p-3">
+            {entry.item?.imageUrl ? (
+              <img
+                src={entry.item.imageUrl}
+                alt={entry.item.name}
+                className="h-10 w-10 shrink-0 rounded object-contain"
+                loading="lazy"
+              />
+            ) : (
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded bg-background">
+                <Gift size={18} />
               </div>
+            )}
+            <div className="min-w-0">
+              <p className="break-words text-sm font-bold">
+                {entry.item?.name ?? "登録済みアイテム"}
+              </p>
+              <p className="text-xs font-bold text-primary">
+                合計 × {entry.quantity.toLocaleString("ja-JP")}
+              </p>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -242,6 +260,10 @@ export default function ChallengeBattleDetailPage() {
 
   const status = getStatus(battle);
   const scoreRewards = [...(battle.scoreRewards ?? [])].sort((a, b) => a.score - b.score);
+  // スコア項目ごとに報酬の有無を個別判定し、報酬が1つもない項目は一覧に出さない
+  const visibleTiers = scoreRewards
+    .map((tier) => ({ tier, ...getTierRewards(tier) }))
+    .filter((entry) => entry.normal.length + entry.lite.length + entry.premium.length > 0);
 
   return (
     <GuideShell>
@@ -300,40 +322,38 @@ export default function ChallengeBattleDetailPage() {
         </section>
       )}
 
-      <section className="mt-6">
-        <h2 className="mb-4 text-xl font-black">スコア報酬</h2>
-        {scoreRewards.length === 0 ? (
-          <div className="rounded-md border border-card-border bg-card p-6 text-sm text-muted-foreground">
-            スコア報酬はまだ登録されていません。
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {scoreRewards.map((tier, index) => (
-              <section key={`${tier.score}-${index}`} className="rounded-md border border-card-border bg-card p-5 shadow-card">
-                <h3 className="mb-4 text-lg font-black">
-                  {tier.score.toLocaleString("ja-JP")} スコア
-                </h3>
-                <div className="grid gap-4 xl:grid-cols-2">
-                  <RewardList title="通常報酬" rewards={tier.normalRewards ?? []} />
-                  <RewardList title="Event Pass Lite報酬" rewards={tier.passLiteRewards?.length ? tier.passLiteRewards : tier.passRewards ?? []} />
-                  <RewardList title="Event Pass Premium報酬" rewards={tier.passPremiumRewards ?? []} />
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </section>
+      {visibleTiers.length > 0 && (
+        <>
+          <section className="mt-8">
+            <h2 className="mb-4 text-xl font-black">報酬の合計</h2>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <RewardTotals title="通常報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards"]} />
+              <RewardTotals title="イベントパスライト報酬の合計" scoreRewards={scoreRewards} fields={["passLiteRewards"]} />
+              <RewardTotals title="イベントパスプレミアム報酬の合計" scoreRewards={scoreRewards} fields={["passPremiumRewards"]} />
+              <RewardTotals title="有料パス報酬の合計（ライト＋プレミアム）" scoreRewards={scoreRewards} fields={["passLiteRewards", "passPremiumRewards"]} />
+              <RewardTotals title="全報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards", "passLiteRewards", "passPremiumRewards"]} />
+            </div>
+          </section>
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-xl font-black">報酬の合計</h2>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <RewardTotals title="通常報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards"]} />
-          <RewardTotals title="Event Pass Lite報酬の合計" scoreRewards={scoreRewards} fields={["passLiteRewards"]} />
-          <RewardTotals title="Event Pass Premium報酬の合計" scoreRewards={scoreRewards} fields={["passPremiumRewards"]} />
-          <RewardTotals title="有料パス報酬の合計（Lite＋Premium）" scoreRewards={scoreRewards} fields={["passLiteRewards", "passPremiumRewards"]} />
-          <RewardTotals title="全報酬の合計" scoreRewards={scoreRewards} fields={["normalRewards", "passLiteRewards", "passPremiumRewards"]} />
-        </div>
-      </section>
+          <section className="mt-8" data-testid="section-score-rewards">
+            <h2 className="mb-4 text-xl font-black">スコア報酬一覧</h2>
+            <div className="space-y-5">
+              {visibleTiers.map(({ tier, normal, lite, premium }, index) => (
+                <section key={`${tier.score}-${index}`} className="rounded-md border border-card-border bg-card p-5 shadow-card">
+                  <h3 className="mb-4 text-lg font-black">
+                    {tier.score.toLocaleString("ja-JP")} スコア
+                  </h3>
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    {normal.length > 0 && <RewardList title="通常報酬" rewards={normal} />}
+                    {lite.length > 0 && <RewardList title="イベントパスライト報酬" rewards={lite} />}
+                    {premium.length > 0 && <RewardList title="イベントパスプレミアム報酬" rewards={premium} />}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="mt-8">
         <h2 className="mb-4 text-xl font-black">ランキング報酬</h2>

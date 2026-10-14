@@ -63,8 +63,8 @@ type RewardType =
 
 const rewardTypes: { value: RewardType; label: string }[] = [
   { value: "normalRewards", label: "通常報酬" },
-  { value: "passLiteRewards", label: "Event Pass Lite報酬" },
-  { value: "passPremiumRewards", label: "Event Pass Premium報酬" },
+  { value: "passLiteRewards", label: "イベントパスライト報酬" },
+  { value: "passPremiumRewards", label: "イベントパスプレミアム報酬" },
 ];
 
 const emptyItem = (): ItemForm => ({
@@ -523,8 +523,8 @@ export default function AdminChallengeBattlesPage() {
 
       const rewardGroups: [string, Reward[]][] = [
         ["通常報酬", tier.normalRewards],
-        ["Lite報酬", tier.passLiteRewards],
-        ["Premium報酬", tier.passPremiumRewards],
+        ["イベントパスライト報酬", tier.passLiteRewards],
+        ["イベントパスプレミアム報酬", tier.passPremiumRewards],
       ];
 
       for (const [label, rewards] of rewardGroups) {
@@ -970,10 +970,10 @@ export default function AdminChallengeBattlesPage() {
 
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           {renderTotals("通常報酬の合計", totals("normalRewards"))}
-          {renderTotals("Lite報酬の合計", totals("passLiteRewards"))}
-          {renderTotals("Premium報酬の合計", totals("passPremiumRewards"))}
+          {renderTotals("イベントパスライト報酬の合計", totals("passLiteRewards"))}
+          {renderTotals("イベントパスプレミアム報酬の合計", totals("passPremiumRewards"))}
           {renderTotals(
-            "有料パス報酬の合計（Lite＋Premium）",
+            "有料パス報酬の合計（ライト＋プレミアム）",
             combinedTotals(["passLiteRewards", "passPremiumRewards"]),
           )}
           {renderTotals(

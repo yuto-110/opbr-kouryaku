@@ -41,14 +41,19 @@ function getGitHubToken(): string {
   return token;
 }
 
+// 大きなBase64文字列に対し、グループ繰り返しを含む正規表現を使うと
+// "Maximum call stack size exceeded" になるため、グループなしの正規表現で検証する。
 function isValidBase64(value: string): boolean {
   if (value.length === 0 || value.length % 4 !== 0) {
     return false;
   }
 
-  return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-    value,
-  );
+  // 使用可能文字のみ + 末尾に最大2個の「=」
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    return false;
+  }
+
+  return true;
 }
 
 async function githubRequest(

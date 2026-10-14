@@ -107,6 +107,66 @@
   .text-balance { text-wrap: balance; }
 }
 
+/*
+ * ダークモード用：ページ内で直接使われているライト前提のTailwindパレット色
+ * （エラー/成功/注意メッセージ、ステータスバッジなど）を一箇所で調整する。
+ * 色を新しく使うときはできるだけ bg-card / text-foreground などのテーマ変数を使うこと。
+ */
+.dark [class~="bg-gray-50"],
+.dark [class~="bg-gray-100"],
+.dark [class~="bg-slate-100"] { background-color: hsl(var(--secondary)); }
+.dark [class~="border-gray-200"],
+.dark [class~="border-slate-200"] { border-color: hsl(var(--border)); }
+.dark [class~="text-gray-600"],
+.dark [class~="text-slate-600"] { color: hsl(var(--muted-foreground)); }
+.dark [class~="text-gray-700"],
+.dark [class~="text-gray-800"],
+.dark [class~="text-gray-900"] { color: hsl(var(--foreground)); }
+
+.dark [class~="bg-red-50"] { background-color: hsl(0 55% 17%); }
+.dark [class~="border-red-200"] { border-color: hsl(0 45% 32%); }
+.dark [class~="text-red-600"],
+.dark [class~="text-red-700"],
+.dark [class~="hover:text-red-600"]:hover { color: hsl(0 85% 75%); }
+.dark [class~="hover:border-red-300"]:hover { border-color: hsl(0 50% 42%); }
+
+.dark [class~="bg-blue-50"] { background-color: hsl(213 50% 18%); }
+.dark [class~="border-blue-200"] { border-color: hsl(213 40% 32%); }
+.dark [class~="text-blue-700"],
+.dark [class~="text-blue-900"],
+.dark [class~="text-blue-900/70"] { color: hsl(213 90% 78%); }
+
+.dark [class~="bg-yellow-50"] { background-color: hsl(45 60% 16%); }
+.dark [class~="border-yellow-200"] { border-color: hsl(45 45% 30%); }
+.dark [class~="text-yellow-600"],
+.dark [class~="text-yellow-700"] { color: hsl(45 90% 70%); }
+
+.dark [class~="bg-amber-50"] { background-color: hsl(38 55% 16%); }
+.dark [class~="border-amber-200"] { border-color: hsl(38 45% 30%); }
+.dark [class~="text-amber-600"],
+.dark [class~="text-amber-700"] { color: hsl(38 90% 68%); }
+
+.dark [class~="bg-emerald-50"],
+.dark [class~="bg-green-50"] { background-color: hsl(150 40% 15%); }
+.dark [class~="border-emerald-200"] { border-color: hsl(150 35% 28%); }
+.dark [class~="text-emerald-600"],
+.dark [class~="text-emerald-700"],
+.dark [class~="text-green-700"] { color: hsl(150 60% 65%); }
+
+.dark [class~="bg-cyan-50"] { background-color: hsl(190 50% 15%); }
+.dark [class~="border-cyan-200"] { border-color: hsl(190 40% 28%); }
+.dark [class~="text-cyan-700"] { color: hsl(190 80% 70%); }
+
+.dark [class~="text-violet-600"] { color: hsl(262 80% 76%); }
+.dark [class~="text-rose-600"] { color: hsl(350 85% 72%); }
+
+.dark [class~="bg-gray-900"] { background-color: hsl(218 30% 28%); }
+.dark [class~="hover:bg-gray-700"]:hover { background-color: hsl(218 28% 36%); }
+.dark [class~="bg-black/5"] { background-color: hsl(0 0% 100% / .05); }
+
+/* 背景のドット模様はライトモード専用（ダークでは表示しない） */
+.dark body::before { display: none; }
+
 body::before {
   content: '';
   pointer-events: none;
