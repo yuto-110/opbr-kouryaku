@@ -1,5 +1,5 @@
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ArrowLeft, Plus, Save, Pencil, Trash2, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
@@ -119,6 +119,142 @@ function normalizeRewards(rewards?: Reward[]): Reward[] {
   }));
 }
 
+
+// ---------------------------------------------------------------
+// 入力途中の下書き保存（ブラウザの localStorage。正式なDB保存の代わりではない）
+// 認証トークンは保存しない。画像ファイル本体も保存せず、画像URLのみ保存する。
+// ---------------------------------------------------------------
+const DRAFT_KEY_PREFIX = "opbr_challenge_battle_draft:v1:";
+const DRAFT_DEBOUNCE_MS = 800;
+const SAVE_TIMEOUT_MS = 90_000; // Render無料プランの起動待ち（約1分）を考慮
+
+type BattleDraft = {
+  version: 1;
+  savedAt: string;
+  hadBannerFile: boolean;
+  form: BattleForm;
+};
+
+type PendingDraft = { battleId: string | null; draft: BattleDraft };
+
+function draftKey(battleId: string | null) {
+  return `${DRAFT_KEY_PREFIX}${battleId ?? "new"}`;
+}
+
+function sanitizeNumberField(value: unknown): number | "" {
+  return typeof value === "number" && Number.isFinite(value) ? value : "";
+}
+
+function sanitizeRewardList(value: unknown): Reward[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    const reward = (entry ?? {}) as Record<string, unknown>;
+    return {
+      itemId: typeof reward.itemId === "string" ? reward.itemId : "",
+      quantity: sanitizeNumberField(reward.quantity),
+    };
+  });
+}
+
+function sanitizeBattleForm(raw: unknown): BattleForm | null {
+  if (!raw || typeof raw !== "object") return null;
+  const form = raw as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+
+  return {
+    name: text(form.name),
+    bannerImageUrl: text(form.bannerImageUrl),
+    startDate: text(form.startDate),
+    endDate: text(form.endDate),
+    overview: text(form.overview),
+    rules: text(form.rules),
+    scoreRewards: (Array.isArray(form.scoreRewards) ? form.scoreRewards : []).map(
+      (entry) => {
+        const tier = (entry ?? {}) as Record<string, unknown>;
+        return {
+          score: sanitizeNumberField(tier.score),
+          normalRewards: sanitizeRewardList(tier.normalRewards),
+          passLiteRewards: sanitizeRewardList(tier.passLiteRewards),
+          passPremiumRewards: sanitizeRewardList(tier.passPremiumRewards),
+        };
+      },
+    ),
+    rankingRewards: (Array.isArray(form.rankingRewards) ? form.rankingRewards : []).map(
+      (entry) => {
+        const ranking = (entry ?? {}) as Record<string, unknown>;
+        return {
+          rankFrom: sanitizeNumberField(ranking.rankFrom),
+          rankTo: sanitizeNumberField(ranking.rankTo),
+          rewards: sanitizeRewardList(ranking.rewards),
+        };
+      },
+    ),
+  };
+}
+
+function readDraft(battleId: string | null): BattleDraft | null {
+  try {
+    const raw = window.localStorage.getItem(draftKey(battleId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (parsed?.version !== 1) return null;
+    const form = sanitizeBattleForm(parsed.form);
+    if (!form) return null;
+    return {
+      version: 1,
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+      hadBannerFile: parsed.hadBannerFile === true,
+      form,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 保存に成功したら true。容量超過・プライベートブラウズ等で失敗したら false。 */
+function writeDraft(battleId: string | null, draft: BattleDraft): boolean {
+  try {
+    window.localStorage.setItem(draftKey(battleId), JSON.stringify(draft));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeDraft(battleId: string | null) {
+  try {
+    window.localStorage.removeItem(draftKey(battleId));
+  } catch {
+    // 削除に失敗しても動作に影響しない
+  }
+}
+
+function formatDraftTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ja-JP");
+}
+
+class RequestTimeoutError extends Error {}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === "AbortError") {
+      throw new RequestTimeoutError("サーバーからの応答がありませんでした");
+    }
+    throw reason;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function AdminChallengeBattlesPage() {
   const [, navigate] = useLocation();
   const token = localStorage.getItem(TOKEN_KEY) ?? "";
@@ -134,6 +270,116 @@ export default function AdminChallengeBattlesPage() {
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // --- 下書き保存 ---
+  // baselineRef: 「DBの内容（または空フォーム）」のスナップショット。これと違うときだけ下書きを保存する
+  const baselineRef = useRef(JSON.stringify(emptyBattle()));
+  const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(() => {
+    const draft = readDraft(null);
+    return draft ? { battleId: null, draft } : null;
+  });
+  const [draftNotice, setDraftNotice] = useState("");
+  const [draftWarning, setDraftWarning] = useState("");
+  const latestRef = useRef({
+    form: battleForm,
+    battleId: editingBattleId,
+    hadFile: false,
+    pending: pendingDraft as PendingDraft | null,
+  });
+  latestRef.current = {
+    form: battleForm,
+    battleId: editingBattleId,
+    hadFile: bannerImageFile !== null,
+    pending: pendingDraft,
+  };
+
+  function persistDraft(
+    form: BattleForm,
+    battleId: string | null,
+    hadFile: boolean,
+  ) {
+    if (JSON.stringify(form) === baselineRef.current) {
+      removeDraft(battleId);
+      setDraftNotice("");
+      return;
+    }
+
+    const ok = writeDraft(battleId, {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      hadBannerFile: hadFile,
+      form,
+    });
+
+    if (ok) {
+      setDraftWarning("");
+      setDraftNotice(
+        `入力内容を下書きとして自動保存しました（${new Date().toLocaleTimeString("ja-JP")}）`,
+      );
+    } else {
+      setDraftNotice("");
+      setDraftWarning(
+        "下書きを自動保存できません（ブラウザの保存容量不足やプライベートブラウズの可能性があります）。ページを閉じる・更新する前に、必ず「チャレバトを保存」を押してください。",
+      );
+    }
+  }
+
+  // 保留中の下書き確認中は、自動保存で下書きを上書きしない
+  function flushDraft() {
+    const latest = latestRef.current;
+    if (latest.pending) return;
+    persistDraft(latest.form, latest.battleId, latest.hadFile);
+  }
+
+  const flushDraftRef = useRef(flushDraft);
+  flushDraftRef.current = flushDraft;
+
+  useEffect(() => {
+    if (pendingDraft) return;
+    const timer = window.setTimeout(
+      () => persistDraft(battleForm, editingBattleId, bannerImageFile !== null),
+      DRAFT_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [battleForm, editingBattleId, bannerImageFile, pendingDraft]);
+
+  useEffect(() => {
+    const onLeave = () => flushDraftRef.current();
+    window.addEventListener("pagehide", onLeave);
+    window.addEventListener("beforeunload", onLeave);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      window.removeEventListener("beforeunload", onLeave);
+    };
+  }, []);
+
+  /** 編集対象を切り替えたとき：基準を更新し、そのフォーム用の下書きがあれば復元確認を出す */
+  function enterEditContext(battleId: string | null, baselineForm: BattleForm) {
+    baselineRef.current = JSON.stringify(baselineForm);
+    setDraftNotice("");
+    const draft = readDraft(battleId);
+    setPendingDraft(draft ? { battleId, draft } : null);
+  }
+
+  function restoreDraft() {
+    if (!pendingDraft) return;
+    setBattleForm(pendingDraft.draft.form);
+    if (pendingDraft.draft.hadBannerFile) {
+      setMessage(
+        "下書きを復元しました。バナー画像ファイルの選択は復元できないため、必要なら再度選択してください。",
+      );
+    } else {
+      setMessage("下書きを復元しました。内容を確認して「チャレバトを保存」を押してください。");
+    }
+    setError("");
+    setPendingDraft(null);
+  }
+
+  function discardDraft() {
+    if (!pendingDraft) return;
+    removeDraft(pendingDraft.battleId);
+    setPendingDraft(null);
+  }
 
   async function load() {
     if (!token) {
@@ -277,8 +523,10 @@ export default function AdminChallengeBattlesPage() {
   }
 
   function editBattle(battle: Battle) {
-    setEditingBattleId(battle.id);
-    setBattleForm({
+    // 今の入力内容を下書きとして残してから切り替える（別のチャレバトの下書きと混ざらない）
+    flushDraftRef.current();
+
+    const nextForm: BattleForm = {
       name: battle.name,
       bannerImageUrl: battle.bannerImageUrl ?? "",
       startDate: toDateInput(battle.startDate),
@@ -298,7 +546,11 @@ export default function AdminChallengeBattlesPage() {
         rankTo: ranking.rankTo,
         rewards: normalizeRewards(ranking.rewards),
       })),
-    });
+    };
+
+    setEditingBattleId(battle.id);
+    setBattleForm(nextForm);
+    enterEditContext(battle.id, nextForm);
 
     setBannerImageFile(null);
     setError("");
@@ -580,6 +832,13 @@ export default function AdminChallengeBattlesPage() {
       }
     }
 
+    // 送信後に結果が分からなくなった場合（タイムアウト・通信断・5xx）に二重登録を避けるための情報
+    let requestSent = false;
+    let submitted: { name: string; startDate: string; endDate: string } | null =
+      null;
+    const isCreate = !editingBattleId;
+    const savingBattleId = editingBattleId;
+
     try {
       const bannerImageUrl = bannerImageFile
         ? await uploadImage(bannerImageFile, "challenge-banner")
@@ -605,32 +864,111 @@ export default function AdminChallengeBattlesPage() {
         })),
       };
 
-      const response = await fetch(
-        editingBattleId
-          ? `${API_BASE_URL}/admin/challenge-battles/${editingBattleId}`
+      submitted = {
+        name: payload.name,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+      };
+
+      // 送信前に最新の入力内容を下書きとして確実に保存しておく
+      flushDraftRef.current();
+
+      requestSent = true;
+      const response = await fetchWithTimeout(
+        savingBattleId
+          ? `${API_BASE_URL}/admin/challenge-battles/${savingBattleId}`
           : `${API_BASE_URL}/admin/challenge-battles`,
         {
-          method: editingBattleId ? "PUT" : "POST",
+          method: savingBattleId ? "PUT" : "POST",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
+        SAVE_TIMEOUT_MS,
       );
 
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
+        if (response.status < 500) {
+          requestSent = false; // 4xx：サーバーは保存していない
+        }
         throw new Error(data?.message ?? "チャレバトの保存に失敗しました");
       }
 
-      setMessage("チャレバトを保存しました");
-      setBattleForm(emptyBattle());
+      // ここまで来たら保存成功：対応する下書きを削除してフォームを初期化
+      removeDraft(savingBattleId);
       setBannerImageFile(null);
       setEditingBattleId(null);
-      await load();
+      setBattleForm(emptyBattle());
+      setDraftNotice("");
+      // 新規作成フォーム用の別の下書きが残っていれば、復元確認を出す（勝手に消さない）
+      enterEditContext(null, emptyBattle());
+      setMessage("チャレバトを保存しました");
+
+      try {
+        await load();
+      } catch {
+        // 保存自体は成功しているので、再保存（二重登録）を促さない
+        setError(
+          "保存は完了しましたが、一覧の再読み込みに失敗しました。ページを再読み込みして確認してください。",
+        );
+      }
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "保存に失敗しました",
+      // フォームの内容と下書きはそのまま残す（初期化しない・自動再送信もしない）
+      const base =
+        reason instanceof RequestTimeoutError
+          ? "サーバーからの応答がありませんでした。Renderの無料プランでは起動に1〜2分かかることがあります。"
+          : reason instanceof TypeError
+            ? "サーバーに接続できませんでした。APIが停止中または再起動中の可能性があります。"
+            : reason instanceof Error
+              ? reason.message
+              : "保存に失敗しました";
+
+      // 送信済みで、4xx 以外の失敗（タイムアウト・通信断・5xx）なら、サーバー側で保存済みの可能性がある
+      const uncertain = requestSent;
+
+      let extra = "入力内容はそのまま残っており、下書きにも保存されています。しばらくしてからもう一度「チャレバトを保存」を押してください。";
+
+      if (uncertain && isCreate && submitted) {
+        const duplicated = await findSameBattle(submitted);
+        if (duplicated === true) {
+          extra =
+            "同じ名前・期間のチャレバトが既に登録されています。保存は成功していた可能性があります。重複登録を避けるため、下の一覧を確認してから操作してください（自動再送信はしていません）。";
+        } else if (duplicated === null) {
+          extra +=
+            " なお、保存が成功していたか確認できませんでした。再保存の前に一覧を確認してください。";
+        }
+      }
+
+      setError(`${base} ${extra}`);
+    }
+  }
+
+  /** 同名・同期間のチャレバトが既に存在するか。確認できなければ null */
+  async function findSameBattle(target: {
+    name: string;
+    startDate: string;
+    endDate: string;
+  }): Promise<boolean | null> {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/admin/challenge-battles`,
+        { headers },
+        15_000,
       );
+      if (!response.ok) return null;
+      const list = (await response.json()) as Battle[];
+      setBattles(list);
+      return list.some(
+        (battle) =>
+          battle.name === target.name &&
+          new Date(battle.startDate).getTime() ===
+            new Date(target.startDate).getTime() &&
+          new Date(battle.endDate).getTime() ===
+            new Date(target.endDate).getTime(),
+      );
+    } catch {
+      return null;
     }
   }
 
@@ -869,6 +1207,46 @@ export default function AdminChallengeBattlesPage() {
         <h2 className="mb-4 text-lg font-black">
           {editingBattleId ? "チャレバトを編集" : "チャレバトを登録"}
         </h2>
+
+        {pendingDraft ? (
+          <div
+            className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700"
+            data-testid="banner-draft-restore"
+          >
+            <p className="font-bold">未保存の入力内容を復元しますか？</p>
+            <p className="mt-1 text-xs">
+              {pendingDraft.battleId
+                ? "このチャレバトの編集中だった内容が下書きとして残っています。"
+                : "登録途中だった新規チャレバトの内容が下書きとして残っています。"}
+              {formatDraftTime(pendingDraft.draft.savedAt)
+                ? `（${formatDraftTime(pendingDraft.draft.savedAt)} に自動保存）`
+                : ""}
+              復元しても、「チャレバトを保存」を押すまでDBの内容は変わりません。
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={restoreDraft}
+                className="rounded bg-primary px-3 py-1.5 text-xs font-bold text-white"
+              >
+                復元する
+              </button>
+              <button
+                type="button"
+                onClick={discardDraft}
+                className="rounded border border-border px-3 py-1.5 text-xs"
+              >
+                破棄する
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {draftWarning ? (
+          <p className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-700">
+            {draftWarning}
+          </p>
+        ) : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm font-bold">
@@ -1216,6 +1594,12 @@ export default function AdminChallengeBattlesPage() {
           </div>
         ))}
 
+        {draftNotice ? (
+          <p className="mt-4 text-xs text-muted-foreground" data-testid="text-draft-status">
+            {draftNotice}
+          </p>
+        ) : null}
+
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             onClick={() => void saveBattle()}
@@ -1228,8 +1612,20 @@ export default function AdminChallengeBattlesPage() {
           {editingBattleId ? (
             <button
               onClick={() => {
+                const dirty =
+                  JSON.stringify(battleForm) !== baselineRef.current;
+                if (
+                  dirty &&
+                  !window.confirm(
+                    "未保存の入力内容を破棄して編集をやめますか？（この編集の下書きも削除されます）",
+                  )
+                ) {
+                  return;
+                }
+                removeDraft(editingBattleId);
                 setEditingBattleId(null);
                 setBattleForm(emptyBattle());
+                enterEditContext(null, emptyBattle());
                 setBannerImageFile(null);
                 setError("");
                 setMessage("");
