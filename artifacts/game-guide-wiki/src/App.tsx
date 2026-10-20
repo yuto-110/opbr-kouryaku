@@ -29,6 +29,10 @@ import AdminChallengeBattlesPage from '@/pages/admin-challenge-battles';
 import ChallengeBattlesPage from '@/pages/challenge-battles';
 import ChallengeBattleDetailPage from '@/pages/challenge-battle-detail';
 import SettingsPage from '@/pages/settings';
+import EventMissionsPage from '@/pages/event-missions';
+import EventMissionDetailPage from '@/pages/event-mission-detail';
+import AdminItemsPage from '@/pages/admin-items';
+import AdminEventMissionsPage from '@/pages/admin-event-missions';
 
 import { type ReactNode } from 'react';
 
@@ -83,6 +87,16 @@ function Router() {
         <Route
           path="/events/:id"
           component={EventDetailPage}
+        />
+
+        <Route
+          path="/event-missions"
+          component={EventMissionsPage}
+        />
+
+        <Route
+          path="/event-missions/:id"
+          component={EventMissionDetailPage}
         />
 
         <Route
@@ -148,6 +162,16 @@ function Router() {
         <Route
           path="/admin/medals"
           component={AdminMedalsPage}
+        />
+
+        <Route
+          path="/admin/items"
+          component={AdminItemsPage}
+        />
+
+        <Route
+          path="/admin/event-missions"
+          component={AdminEventMissionsPage}
         />
 
         <Route

@@ -15,6 +15,8 @@ type RewardItem = {
   imageUrl: string;
   description: string;
   active: boolean;
+  // 共通アイテム管理から取得した場合のみ付く（通常アイテム / メダル / メダル継承用アイテム）
+  categoryLabel?: string;
 };
 
 type Reward = {
@@ -261,6 +263,8 @@ export default function AdminChallengeBattlesPage() {
   const headers = { Authorization: `Bearer ${token}` };
 
   const [items, setItems] = useState<RewardItem[]>([]);
+  // 報酬として選べる共通アイテム（通常アイテム・メダル・メダル継承用アイテム）
+  const [selectableItems, setSelectableItems] = useState<RewardItem[]>([]);
   const [battles, setBattles] = useState<Battle[]>([]);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItem());
   const [battleForm, setBattleForm] = useState<BattleForm>(emptyBattle());
@@ -404,8 +408,19 @@ export default function AdminChallengeBattlesPage() {
       throw new Error("チャレバト管理データの取得に失敗しました");
     }
 
-    setItems((await itemResponse.json()) as RewardItem[]);
+    const legacyItems = (await itemResponse.json()) as RewardItem[];
+    setItems(legacyItems);
     setBattles((await battleResponse.json()) as Battle[]);
+
+    // 共通アイテムマスターから選択肢を取得。取得できない場合は従来の報酬アイテムだけを選択肢にする
+    try {
+      const sharedResponse = await fetch(`${API_BASE_URL}/admin/reward-items`, { headers });
+      if (!sharedResponse.ok) throw new Error("shared items unavailable");
+      const shared = (await sharedResponse.json()) as { items: RewardItem[] };
+      setSelectableItems(shared.items);
+    } catch {
+      setSelectableItems(legacyItems);
+    }
   }
 
   useEffect(() => {
@@ -604,7 +619,7 @@ export default function AdminChallengeBattlesPage() {
   }
 
   function addReward(tierIndex: number, type: RewardType) {
-    const firstItem = items.find((item) => item.active);
+    const firstItem = selectableItems.find((item) => item.active);
 
     if (!firstItem) {
       setError("先に報酬アイテムを登録してください");
@@ -654,7 +669,7 @@ export default function AdminChallengeBattlesPage() {
   }
 
   function addRankingReward(rankingIndex: number) {
-    const firstItem = items.find((item) => item.active);
+    const firstItem = selectableItems.find((item) => item.active);
 
     if (!firstItem) {
       setError("先に報酬アイテムを登録してください");
@@ -710,7 +725,7 @@ export default function AdminChallengeBattlesPage() {
     }
 
     return [...counts.entries()].map(([itemId, quantity]) => ({
-      item: items.find((candidate) => candidate.id === itemId),
+      item: selectableItems.find((candidate) => candidate.id === itemId),
       itemId,
       quantity,
     }));
@@ -732,7 +747,7 @@ export default function AdminChallengeBattlesPage() {
     }
 
     return [...counts.entries()].map(([itemId, quantity]) => ({
-      item: items.find((candidate) => candidate.id === itemId),
+      item: selectableItems.find((candidate) => candidate.id === itemId),
       itemId,
       quantity,
     }));
@@ -972,21 +987,28 @@ export default function AdminChallengeBattlesPage() {
     }
   }
 
-  const rewardItemOptions = items.filter((item) => item.active);
+  const rewardItemOptions = selectableItems.filter((item) => item.active);
 
   function rewardItemSelect(
     value: string,
     onChange: (value: string) => void,
   ) {
+    // 既に選択済みのアイテムは、無効化されていても選択肢に残す（既存の報酬を壊さないため）
+    const current = selectableItems.find((item) => item.id === value);
+    const options =
+      current && !current.active ? [current, ...rewardItemOptions] : rewardItemOptions;
+
     return (
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 rounded border border-border bg-background px-2 py-2 text-sm"
       >
-        {rewardItemOptions.map((item) => (
+        {options.map((item) => (
           <option key={item.id} value={item.id}>
+            {item.categoryLabel ? `[${item.categoryLabel}] ` : ""}
             {item.name}
+            {item.active ? "" : "（無効）"}
           </option>
         ))}
       </select>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Database, ImagePlus, ShieldCheck, Swords, Tags, Shield } from "lucide-react";
+import { ArrowRight, Database, ImagePlus, ShieldCheck, Swords, Tags, Shield, Gift, ListChecks } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 
@@ -116,6 +116,38 @@ export default function AdminPage() {
           </div>
           <h2 className="mt-5 text-lg font-black">メダル管理</h2>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">メダル画像・固有特性・メダルタグ・追加特性3枠を登録・編集します。</p>
+        </Link>
+
+        <Link
+          href="/admin/items"
+          className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="grid h-11 w-11 place-items-center rounded-md bg-amber-500/10 text-amber-600">
+              <Gift size={21} />
+            </div>
+            <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+          </div>
+          <h2 className="mt-5 text-lg font-black">共通アイテム管理</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            通常アイテム・メダル継承用アイテムを登録します。メダルも含め、報酬で共通利用するアイテムを一覧・検索できます。
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/event-missions"
+          className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="grid h-11 w-11 place-items-center rounded-md bg-emerald-500/10 text-emerald-600">
+              <ListChecks size={21} />
+            </div>
+            <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+          </div>
+          <h2 className="mt-5 text-lg font-black">イベントミッション管理</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            期間限定イベントと、ミッションごとの達成条件・期限・報酬を登録・編集します。
+          </p>
         </Link>
 
         <Link

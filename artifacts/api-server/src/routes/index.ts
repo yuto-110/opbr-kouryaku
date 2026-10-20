@@ -10,6 +10,8 @@ import characterTagsRouter from "./character-tags";
 import characterIconsRouter from "./character-icons";
 import medalsRouter from "./medals";
 import challengeBattlesRouter from "./challenge-battles";
+import rewardItemsRouter from "./reward-items";
+import eventMissionsRouter from "./event-missions";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,7 @@ router.use(characterTagsRouter);
 router.use(characterIconsRouter);
 router.use(medalsRouter);
 router.use(challengeBattlesRouter);
+router.use(rewardItemsRouter);
+router.use(eventMissionsRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Bookmark, BookOpenText, ChevronRight, CircleUserRound, Compass, Database, ExternalLink, Hammer, Home, Menu, Search, Settings, Shield, Swords, Trophy, X } from 'lucide-react';
+import { Bookmark, BookOpenText, ChevronRight, ListChecks, CircleUserRound, Compass, Database, ExternalLink, Hammer, Home, Menu, Search, Settings, Shield, Swords, Trophy, X } from 'lucide-react';
 import type { Character, Medal } from '@/data/mockData';
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { href: '/medals', label: 'メダル', icon: Shield },
   { href: '/support', label: 'サポート編成', icon: Hammer },
   { href: '/challenge-battles', label: 'チャレンジバトル', icon: BookOpenText },
+  { href: '/event-missions', label: 'イベントミッション', icon: ListChecks },
   { href: '/rankings', label: 'ランキング', icon: Trophy },
 ];
 

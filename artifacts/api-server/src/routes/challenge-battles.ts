@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { ChallengeBattle, ChallengeRewardItem, connectDB } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
+import { resolveRewardItems, validateRewardItemIds } from "../lib/reward-items";
 
 const router: IRouter = Router();
 
@@ -153,11 +154,8 @@ async function hydrateBattle(battle: any) {
   }
 
 
-  const items = await ChallengeRewardItem.find({
-    id: { $in: [...itemIds] },
-  }).lean();
-
-  const itemMap = new Map(items.map((item) => [item.id, item]));
+  // 通常アイテム・メダル継承用アイテム・メダルを共通のしくみで解決（無効化済みも解決できる）
+  const itemMap = await resolveRewardItems(itemIds);
 
   return {
     ...data,
@@ -282,17 +280,10 @@ router.post("/admin/challenge-battles", requireAuth, requireAdmin, async (req, r
     ];
 
 
-    const existingItems = await ChallengeRewardItem.find({
-      id: { $in: itemIds },
-      active: true,
-    }).select("id").lean();
-
-    const existingIds = new Set(existingItems.map((item) => item.id));
-
-    if (itemIds.some((id) => !existingIds.has(id))) {
-      return res.status(400).json({
-        message: "登録済みの有効な報酬アイテムを選択してください",
-      });
+    // 共通アイテム（通常・メダル継承用・メダル）に存在する、有効なアイテムだけ選択できる
+    const itemCheck = await validateRewardItemIds(itemIds);
+    if (!itemCheck.ok) {
+      return res.status(400).json({ message: itemCheck.message });
     }
 
 
@@ -325,17 +316,23 @@ router.put("/admin/challenge-battles/:id", requireAuth, requireAdmin, async (req
     ];
 
 
-    const existingItems = await ChallengeRewardItem.find({
-      id: { $in: itemIds },
-      active: true,
-    }).select("id").lean();
+    // 既にこのチャレバトが参照しているアイテムは、無効化されていても再保存できる
+    const currentBattle = await ChallengeBattle.findOne({ id: req.params.id }).lean();
+    if (!currentBattle) return res.status(404).json({ message: "チャレバトが見つかりません" });
 
-    const existingIds = new Set(existingItems.map((item) => item.id));
+    const referencedIds = new Set<string>();
+    for (const tier of (currentBattle.scoreRewards ?? []) as any[]) {
+      for (const list of [tier.normalRewards, tier.passLiteRewards, tier.passPremiumRewards, tier.passRewards]) {
+        for (const reward of list ?? []) referencedIds.add(reward.itemId);
+      }
+    }
+    for (const ranking of (currentBattle.rankingRewards ?? []) as any[]) {
+      for (const reward of ranking.rewards ?? []) referencedIds.add(reward.itemId);
+    }
 
-    if (itemIds.some((id) => !existingIds.has(id))) {
-      return res.status(400).json({
-        message: "登録済みの有効な報酬アイテムを選択してください",
-      });
+    const itemCheck = await validateRewardItemIds(itemIds, referencedIds);
+    if (!itemCheck.ok) {
+      return res.status(400).json({ message: itemCheck.message });
     }
 
 
