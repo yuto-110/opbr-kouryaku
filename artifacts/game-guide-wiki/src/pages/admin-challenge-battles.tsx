@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ArrowLeft, Plus, Save, Pencil, Trash2, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
+import { PublishToggle } from "@/components/publish-toggle";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -15,7 +16,8 @@ type RewardItem = {
   imageUrl: string;
   description: string;
   active: boolean;
-  // 共通アイテム管理から取得した場合のみ付く（通常アイテム / メダル / メダル継承用アイテム）
+  // 共通アイテム管理から取得（通常アイテム / メダル / メダル継承用アイテム）
+  category?: RewardCategory;
   categoryLabel?: string;
 };
 
@@ -51,13 +53,8 @@ type Battle = {
   active: boolean;
 };
 
-type ItemForm = {
-  name: string;
-  imageUrl: string;
-  description: string;
-};
-
-type BattleForm = Omit<Battle, "id" | "active">;
+// active：公開状態（API側の既存フィールド名）。新規は公開(true)、編集時は保存済みの状態を反映する
+type BattleForm = Omit<Battle, "id" | "active"> & { active: boolean };
 type RewardType =
   | "normalRewards"
   | "passLiteRewards"
@@ -69,13 +66,34 @@ const rewardTypes: { value: RewardType; label: string }[] = [
   { value: "passPremiumRewards", label: "イベントパスプレミアム報酬" },
 ];
 
-const emptyItem = (): ItemForm => ({
-  name: "",
-  imageUrl: "",
-  description: "",
-});
+// 報酬候補に含めるアイテムの種類。設定は全チャレバト共通で、このブラウザに保存する。
+type RewardCategory = "normal" | "medal" | "medal-inheritance";
+
+const REWARD_CATEGORY_OPTIONS: { value: RewardCategory; label: string }[] = [
+  { value: "normal", label: "通常アイテム" },
+  { value: "medal", label: "メダル" },
+  { value: "medal-inheritance", label: "メダル継承用アイテム" },
+];
+
+const REWARD_CATEGORY_STORAGE_KEY = "opbr_challenge_reward_categories";
+const DEFAULT_REWARD_CATEGORIES: RewardCategory[] = ["normal"];
+
+function loadRewardCategories(): RewardCategory[] {
+  try {
+    const raw = window.localStorage.getItem(REWARD_CATEGORY_STORAGE_KEY);
+    if (!raw) return DEFAULT_REWARD_CATEGORIES;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_REWARD_CATEGORIES;
+    return REWARD_CATEGORY_OPTIONS.map((option) => option.value).filter((value) =>
+      parsed.includes(value),
+    );
+  } catch {
+    return DEFAULT_REWARD_CATEGORIES;
+  }
+}
 
 const emptyBattle = (): BattleForm => ({
+  active: true,
   name: "",
   bannerImageUrl: "",
   startDate: "",
@@ -164,6 +182,7 @@ function sanitizeBattleForm(raw: unknown): BattleForm | null {
   const text = (value: unknown) => (typeof value === "string" ? value : "");
 
   return {
+    active: typeof form.active === "boolean" ? form.active : true,
     name: text(form.name),
     bannerImageUrl: text(form.bannerImageUrl),
     startDate: text(form.startDate),
@@ -262,15 +281,13 @@ export default function AdminChallengeBattlesPage() {
   const token = localStorage.getItem(TOKEN_KEY) ?? "";
   const headers = { Authorization: `Bearer ${token}` };
 
-  const [items, setItems] = useState<RewardItem[]>([]);
-  // 報酬として選べる共通アイテム（通常アイテム・メダル・メダル継承用アイテム）
+  // 共通アイテム管理に登録されているアイテム（通常アイテム・メダル・メダル継承用アイテム）
   const [selectableItems, setSelectableItems] = useState<RewardItem[]>([]);
+  const [rewardCategories, setRewardCategories] =
+    useState<RewardCategory[]>(loadRewardCategories);
   const [battles, setBattles] = useState<Battle[]>([]);
-  const [itemForm, setItemForm] = useState<ItemForm>(emptyItem());
   const [battleForm, setBattleForm] = useState<BattleForm>(emptyBattle());
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingBattleId, setEditingBattleId] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -400,7 +417,7 @@ export default function AdminChallengeBattlesPage() {
     }
 
     const [itemResponse, battleResponse] = await Promise.all([
-      fetch(`${API_BASE_URL}/admin/challenge-reward-items`, { headers }),
+      fetch(`${API_BASE_URL}/admin/reward-items`, { headers }),
       fetch(`${API_BASE_URL}/admin/challenge-battles`, { headers }),
     ]);
 
@@ -408,19 +425,9 @@ export default function AdminChallengeBattlesPage() {
       throw new Error("チャレバト管理データの取得に失敗しました");
     }
 
-    const legacyItems = (await itemResponse.json()) as RewardItem[];
-    setItems(legacyItems);
+    const shared = (await itemResponse.json()) as { items: RewardItem[] };
+    setSelectableItems(shared.items);
     setBattles((await battleResponse.json()) as Battle[]);
-
-    // 共通アイテムマスターから選択肢を取得。取得できない場合は従来の報酬アイテムだけを選択肢にする
-    try {
-      const sharedResponse = await fetch(`${API_BASE_URL}/admin/reward-items`, { headers });
-      if (!sharedResponse.ok) throw new Error("shared items unavailable");
-      const shared = (await sharedResponse.json()) as { items: RewardItem[] };
-      setSelectableItems(shared.items);
-    } catch {
-      setSelectableItems(legacyItems);
-    }
   }
 
   useEffect(() => {
@@ -458,49 +465,6 @@ export default function AdminChallengeBattlesPage() {
     return url;
   }
 
-  async function saveItem() {
-    setError("");
-    setMessage("");
-
-    if (!itemForm.name.trim()) {
-      setError("報酬アイテム名を入力してください");
-      return;
-    }
-
-    try {
-      const imageUrl = imageFile
-        ? await uploadImage(imageFile, "challenge-reward")
-        : itemForm.imageUrl;
-
-      const response = await fetch(
-        editingItemId
-          ? `${API_BASE_URL}/admin/challenge-reward-items/${editingItemId}`
-          : `${API_BASE_URL}/admin/challenge-reward-items`,
-        {
-          method: editingItemId ? "PUT" : "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ ...itemForm, imageUrl }),
-        },
-      );
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message ?? "報酬アイテムの保存に失敗しました");
-      }
-
-      setItemForm(emptyItem());
-      setImageFile(null);
-      setEditingItemId(null);
-      setMessage("報酬アイテムを保存しました");
-      await load();
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "保存に失敗しました",
-      );
-    }
-  }
-
   async function remove(path: string) {
     if (!window.confirm("このデータを削除しますか？")) return;
 
@@ -526,22 +490,12 @@ export default function AdminChallengeBattlesPage() {
     }
   }
 
-  function editItem(item: RewardItem) {
-    setEditingItemId(item.id);
-    setItemForm({
-      name: item.name,
-      imageUrl: item.imageUrl ?? "",
-      description: item.description ?? "",
-    });
-    setImageFile(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   function editBattle(battle: Battle) {
     // 今の入力内容を下書きとして残してから切り替える（別のチャレバトの下書きと混ざらない）
     flushDraftRef.current();
 
     const nextForm: BattleForm = {
+      active: battle.active !== false,
       name: battle.name,
       bannerImageUrl: battle.bannerImageUrl ?? "",
       startDate: toDateInput(battle.startDate),
@@ -619,10 +573,10 @@ export default function AdminChallengeBattlesPage() {
   }
 
   function addReward(tierIndex: number, type: RewardType) {
-    const firstItem = selectableItems.find((item) => item.active);
+    const firstItem = selectableItems.find(isSelectable);
 
     if (!firstItem) {
-      setError("先に報酬アイテムを登録してください");
+      setError("報酬候補になるアイテムがありません。共通アイテム管理でアイテムを登録するか、上の「報酬候補に含めるアイテムの種類」を確認してください");
       return;
     }
 
@@ -669,10 +623,10 @@ export default function AdminChallengeBattlesPage() {
   }
 
   function addRankingReward(rankingIndex: number) {
-    const firstItem = selectableItems.find((item) => item.active);
+    const firstItem = selectableItems.find(isSelectable);
 
     if (!firstItem) {
-      setError("先に報酬アイテムを登録してください");
+      setError("報酬候補になるアイテムがありません。共通アイテム管理でアイテムを登録するか、上の「報酬候補に含めるアイテムの種類」を確認してください");
       return;
     }
 
@@ -861,6 +815,7 @@ export default function AdminChallengeBattlesPage() {
 
       const payload = {
         ...battleForm,
+        rewardCategories,
         bannerImageUrl,
         startDate: new Date(battleForm.startDate).toISOString(),
         endDate: new Date(battleForm.endDate).toISOString(),
@@ -987,16 +942,35 @@ export default function AdminChallengeBattlesPage() {
     }
   }
 
-  const rewardItemOptions = selectableItems.filter((item) => item.active);
+  // 新しい報酬として選べるアイテム：有効、かつ設定でONの種類
+  const isSelectable = (item: RewardItem) =>
+    item.active && rewardCategories.includes(item.category ?? "normal");
+  const rewardItemOptions = selectableItems.filter(isSelectable);
+
+  function toggleRewardCategory(category: RewardCategory) {
+    setRewardCategories((current) => {
+      const next = REWARD_CATEGORY_OPTIONS.map((option) => option.value).filter(
+        (value) => (value === category ? !current.includes(value) : current.includes(value)),
+      );
+      try {
+        window.localStorage.setItem(REWARD_CATEGORY_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // 保存できなくても、この画面では反映される
+      }
+      return next;
+    });
+  }
 
   function rewardItemSelect(
     value: string,
     onChange: (value: string) => void,
   ) {
-    // 既に選択済みのアイテムは、無効化されていても選択肢に残す（既存の報酬を壊さないため）
+    // 既に選択済みのアイテムは、無効や選択対象外の種類でも選択肢に残す（既存の報酬を壊さないため）
     const current = selectableItems.find((item) => item.id === value);
     const options =
-      current && !current.active ? [current, ...rewardItemOptions] : rewardItemOptions;
+      current && !isSelectable(current)
+        ? [current, ...rewardItemOptions]
+        : rewardItemOptions;
 
     return (
       <select
@@ -1008,7 +982,11 @@ export default function AdminChallengeBattlesPage() {
           <option key={item.id} value={item.id}>
             {item.categoryLabel ? `[${item.categoryLabel}] ` : ""}
             {item.name}
-            {item.active ? "" : "（無効）"}
+            {!item.active
+              ? "（無効）"
+              : !isSelectable(item)
+                ? "（現在の設定では新規選択対象外）"
+                : ""}
           </option>
         ))}
       </select>
@@ -1094,135 +1072,30 @@ export default function AdminChallengeBattlesPage() {
         </p>
       ) : null}
 
-      <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
-        <h2 className="mb-4 text-lg font-black">
-          {editingItemId ? "報酬アイテムを編集" : "報酬アイテムを登録"}
-        </h2>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm font-bold">
-            アイテム名
-            <input
-              value={itemForm.name}
-              onChange={(event) =>
-                setItemForm({ ...itemForm, name: event.target.value })
-              }
-              className="mt-1 w-full rounded border border-border bg-background px-3 py-2"
-            />
-          </label>
-
-          <label className="text-sm font-bold">
-            画像ファイル
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/avif"
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setImageFile(event.target.files?.[0] ?? null)
-              }
-              className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-xs"
-            />
-            <input
-              value={itemForm.imageUrl}
-              onChange={(event) =>
-                setItemForm({ ...itemForm, imageUrl: event.target.value })
-              }
-              placeholder="画像URL（直接入力も可）"
-              className="mt-2 w-full rounded border border-border bg-background px-3 py-2 text-xs"
-            />
-          </label>
-
-          <label className="text-sm font-bold md:col-span-2">
-            説明
-            <textarea
-              value={itemForm.description}
-              onChange={(event) =>
-                setItemForm({ ...itemForm, description: event.target.value })
-              }
-              className="mt-1 min-h-16 w-full rounded border border-border bg-background px-3 py-2"
-            />
-          </label>
+      <section className="rounded-md border border-card-border bg-card p-5 shadow-card" data-testid="section-reward-categories">
+        <h2 className="mb-1 text-lg font-black">報酬候補に含めるアイテムの種類</h2>
+        <p className="mb-3 text-xs leading-5 text-muted-foreground">
+          ONにした種類のアイテムだけが、新しい報酬の選択肢に表示されます。この設定は<strong>すべてのチャレバトで共通</strong>で、このブラウザに保存されます。
+          すでに保存済みの報酬は、設定を変えても削除・変更されません。
+        </p>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {REWARD_CATEGORY_OPTIONS.map((option) => (
+            <label key={option.value} className="flex items-center gap-2 text-sm font-bold">
+              <input
+                type="checkbox"
+                checked={rewardCategories.includes(option.value)}
+                onChange={() => toggleRewardCategory(option.value)}
+                data-testid={`checkbox-reward-category-${option.value}`}
+              />
+              {option.label}
+            </label>
+          ))}
         </div>
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => void saveItem()}
-            className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-xs font-bold text-white"
-          >
-            <Save size={14} />
-            保存
-          </button>
-
-          {editingItemId ? (
-            <button
-              onClick={() => {
-                setEditingItemId(null);
-                setItemForm(emptyItem());
-                setImageFile(null);
-              }}
-              className="rounded border border-border px-3 py-2 text-xs"
-            >
-              <X size={14} className="inline" /> キャンセル
-            </button>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="mt-5 space-y-2">
-        <h2 className="text-lg font-black">
-          登録済み報酬アイテム（{items.length}件）
-        </h2>
-
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className={`flex items-center justify-between gap-3 rounded-md border border-card-border bg-card p-3 ${
-              !item.active ? "opacity-50" : ""
-            }`}
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-secondary">
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt=""
-                    className="h-full w-full object-contain"
-                  />
-                ) : null}
-              </div>
-
-              <div className="min-w-0">
-                <b>{item.name}</b>
-                <p className="text-xs text-muted-foreground">
-                  {item.description}
-                </p>
-                {!item.active ? (
-                  <p className="text-xs text-red-600">無効</p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex shrink-0 gap-3">
-              <button
-                onClick={() => editItem(item)}
-                aria-label="編集"
-                className="text-primary"
-              >
-                <Pencil size={16} />
-              </button>
-              {item.active ? (
-                <button
-                  onClick={() =>
-                    void remove(`challenge-reward-items/${item.id}`)
-                  }
-                  aria-label="無効化"
-                  className="text-red-600"
-                >
-                  <Trash2 size={16} />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ))}
+        <p className="mt-3 text-xs text-muted-foreground">
+          アイテムの登録・編集は
+          <Link href="/admin/items" className="mx-1 font-bold text-primary underline">共通アイテム管理</Link>
+          で行います（メダルは同画面からメダル管理へ移動できます）。
+        </p>
       </section>
 
       <section className="mt-8 rounded-md border border-card-border bg-card p-5 shadow-card">
@@ -1615,6 +1488,14 @@ export default function AdminChallengeBattlesPage() {
             </div>
           </div>
         ))}
+
+        <div className="mt-5">
+          <PublishToggle
+            checked={battleForm.active}
+            onChange={(active) => setBattleForm({ ...battleForm, active })}
+            testId="checkbox-battle-active"
+          />
+        </div>
 
         {draftNotice ? (
           <p className="mt-4 text-xs text-muted-foreground" data-testid="text-draft-status">

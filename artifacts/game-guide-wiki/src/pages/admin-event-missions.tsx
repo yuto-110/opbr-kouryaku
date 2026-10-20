@@ -3,6 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Pencil, Plus, Save, Trash2,
 import { Link } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { RewardIcon } from "@/components/reward-icon";
+import { PublishToggle } from "@/components/publish-toggle";
 import { RewardItemPicker } from "@/components/reward-item-picker";
 import {
   EVENT_STATUS_LABEL,
@@ -17,14 +18,16 @@ import {
 import { useFormDraft } from "@/lib/use-form-draft";
 import { aggregateRewards, type RewardItemOption, type RewardRow } from "@/lib/reward-items";
 
+// 画面で入力するのは「ミッション内容(condition)」と「報酬(rewards)」だけ。
+// name / requiredCount / deadline / published は旧データ互換のため値を保持し、そのまま送り返す（画面には出さない）。
 type MissionForm = {
   id: string;
-  name: string;
   condition: string;
-  requiredCount: number | "";
-  deadline: string; // JSTの datetime-local 値。空＝期限なし
-  published: boolean;
   rewards: RewardRow[];
+  name: string;
+  requiredCount: number;
+  deadline: string; // JSTの datetime-local 値
+  published: boolean;
 };
 
 type EventForm = {
@@ -57,14 +60,14 @@ function newMissionId() {
   return `mission-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
-const emptyMission = (deadline = ""): MissionForm => ({
+const emptyMission = (): MissionForm => ({
   id: newMissionId(),
-  name: "",
   condition: "",
-  requiredCount: 1,
-  deadline,
-  published: true,
   rewards: [],
+  name: "",
+  requiredCount: 1,
+  deadline: "",
+  published: true,
 });
 
 const emptyEvent = (): EventForm => ({
@@ -74,7 +77,7 @@ const emptyEvent = (): EventForm => ({
   imageUrl: "",
   startDate: "",
   endDate: "",
-  published: false,
+  published: true, // 新規登録は最初から公開（管理者がオフにできる）
   sortOrder: 0,
   missions: [],
 });
@@ -113,12 +116,15 @@ function sanitizeEventForm(raw: unknown): EventForm | null {
       const mission = (entry ?? {}) as Record<string, unknown>;
       return {
         id: text(mission.id) || newMissionId(),
-        name: text(mission.name),
         condition: text(mission.condition),
-        requiredCount: numberOrEmpty(mission.requiredCount),
+        rewards: sanitizeRewards(mission.rewards),
+        name: text(mission.name),
+        requiredCount:
+          typeof mission.requiredCount === "number" && mission.requiredCount >= 1
+            ? mission.requiredCount
+            : 1,
         deadline: text(mission.deadline),
         published: mission.published !== false,
-        rewards: sanitizeRewards(mission.rewards),
       };
     }),
   };
@@ -136,15 +142,15 @@ function detailToForm(detail: any): EventForm {
     sortOrder: typeof detail.sortOrder === "number" ? detail.sortOrder : 0,
     missions: (detail.missions ?? []).map((mission: any) => ({
       id: mission.id,
-      name: mission.name ?? "",
       condition: mission.condition ?? "",
-      requiredCount: typeof mission.requiredCount === "number" ? mission.requiredCount : 1,
-      deadline: toJstInput(mission.deadline),
-      published: mission.published !== false,
       rewards: (mission.rewards ?? []).map((reward: any) => ({
         itemId: reward.itemId,
         quantity: reward.quantity,
       })),
+      name: mission.name ?? "",
+      requiredCount: typeof mission.requiredCount === "number" ? mission.requiredCount : 1,
+      deadline: toJstInput(mission.deadline),
+      published: mission.published !== false,
     })),
   };
 }
@@ -161,11 +167,7 @@ function validateForm(form: EventForm): string | null {
   for (let i = 0; i < form.missions.length; i += 1) {
     const mission = form.missions[i];
     const label = `ミッション${i + 1}`;
-    if (!mission.name.trim()) return `${label}の名前を入力してください`;
-    if (!Number.isInteger(mission.requiredCount) || (mission.requiredCount as number) < 1) {
-      return `${label}の必要な達成数は1以上の整数で入力してください`;
-    }
-    if (mission.deadline && !fromJstInput(mission.deadline)) return `${label}の期限を正しく入力してください`;
+    if (!mission.condition.trim() && !mission.name.trim()) return `${label}のミッション内容を入力してください`;
     for (const reward of mission.rewards) {
       if (!reward.itemId) return `${label}：報酬アイテムを選択してください`;
       if (!Number.isInteger(reward.quantity) || (reward.quantity as number) < 1) {
@@ -188,7 +190,7 @@ function buildPayload(form: EventForm, imageUrl: string) {
     sortOrder: form.sortOrder === "" ? 0 : form.sortOrder,
     missions: form.missions.map((mission) => ({
       id: mission.id,
-      name: mission.name.trim(),
+      name: mission.name,
       condition: mission.condition,
       requiredCount: mission.requiredCount,
       deadline: mission.deadline ? fromJstInput(mission.deadline) : null,
@@ -463,10 +465,13 @@ export default function AdminEventMissionsPage() {
               className={inputClass}
             />
           </label>
-          <label className="flex items-center gap-2 self-end text-xs font-bold">
-            <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
-            公開する（オフの間は一般ユーザーに表示されません）
-          </label>
+          <div className="self-end">
+            <PublishToggle
+              checked={form.published}
+              onChange={(published) => setForm({ ...form, published })}
+              testId="checkbox-event-published"
+            />
+          </div>
 
           <div className="md:col-span-2">
             <p className="mb-1 text-xs font-bold">バナー画像</p>
@@ -494,7 +499,7 @@ export default function AdminEventMissionsPage() {
             <h3 className="text-base font-black">ミッション（{form.missions.length}件）</h3>
             <button
               type="button"
-              onClick={() => setForm({ ...form, missions: [...form.missions, emptyMission(form.endDate)] })}
+              onClick={() => setForm({ ...form, missions: [...form.missions, emptyMission()] })}
               className="inline-flex items-center gap-1 rounded border border-border px-3 py-1.5 text-xs font-bold"
               data-testid="button-add-mission"
             >
@@ -518,14 +523,6 @@ export default function AdminEventMissionsPage() {
                     <button type="button" aria-label="下へ" disabled={index === form.missions.length - 1} onClick={() => setForm({ ...form, missions: move(form.missions, index, 1) })} className="rounded border border-border p-1.5 disabled:opacity-30"><ArrowDown size={14} /></button>
                     <button
                       type="button"
-                      onClick={() => patchMission(index, { published: !mission.published })}
-                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5 text-[11px] font-bold"
-                    >
-                      {mission.published ? <Eye size={13} /> : <EyeOff size={13} />}
-                      {mission.published ? "公開" : "非公開"}
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => {
                         if (window.confirm(`ミッション${index + 1}を削除しますか？`)) {
                           setForm({ ...form, missions: form.missions.filter((_, i) => i !== index) });
@@ -539,40 +536,26 @@ export default function AdminEventMissionsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="block text-xs font-bold">
-                    ミッション名
-                    <input value={mission.name} onChange={(e) => patchMission(index, { name: e.target.value })} className={inputClass} />
-                  </label>
-                  <label className="block text-xs font-bold">
-                    必要な達成数
-                    <input
-                      type="number"
-                      min={1}
-                      value={mission.requiredCount}
-                      onChange={(e) => patchMission(index, { requiredCount: e.target.value === "" ? "" : Number(e.target.value) })}
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="block text-xs font-bold md:col-span-2">
-                    達成条件
-                    <textarea value={mission.condition} onChange={(e) => patchMission(index, { condition: e.target.value })} rows={2} className={inputClass} />
-                  </label>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold">
-                      このミッションの期限（日本時間・空欄＝期限なし）
-                      <input type="datetime-local" value={mission.deadline} onChange={(e) => patchMission(index, { deadline: e.target.value })} className={inputClass} />
-                    </label>
-                    <div className="mt-1 flex gap-3">
-                      <button type="button" disabled={!form.endDate} onClick={() => patchMission(index, { deadline: form.endDate })} className="text-[11px] font-bold text-primary disabled:opacity-40">
-                        イベントの終了日時を期限にする
-                      </button>
-                      <button type="button" onClick={() => patchMission(index, { deadline: "" })} className="text-[11px] text-muted-foreground">
-                        期限をなくす
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <label className="block text-xs font-bold">
+                  ミッション内容
+                  <textarea
+                    value={mission.condition}
+                    onChange={(e) => patchMission(index, { condition: e.target.value })}
+                    rows={3}
+                    placeholder="例：バトルを10回プレイする"
+                    className={inputClass}
+                    data-testid={`input-mission-condition-${index}`}
+                  />
+                </label>
+                {mission.name || mission.deadline || mission.requiredCount !== 1 || !mission.published ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    既存データを保持しています：
+                    {mission.name ? `名前「${mission.name}」 ` : ""}
+                    {mission.requiredCount !== 1 ? `達成数 ${mission.requiredCount} ` : ""}
+                    {mission.deadline ? `期限 ${mission.deadline.replace("T", " ")} ` : ""}
+                    {!mission.published ? "非公開" : ""}
+                  </p>
+                ) : null}
 
                 {/* 報酬 */}
                 <div className="mt-4">
@@ -630,7 +613,7 @@ export default function AdminEventMissionsPage() {
         <div className="mt-8 rounded-md border border-card-border bg-background p-4" data-testid="section-reward-totals">
           <h3 className="text-base font-black">報酬の合計（アイテム別）</h3>
           <p className="mb-3 mt-1 text-[11px] text-muted-foreground">
-            対象：このイベントの全{form.missions.length}ミッション（非公開のミッションを含む）。公開画面では公開中のミッションだけを集計します。
+            対象：このイベントの全{form.missions.length}ミッションの報酬です。
           </p>
           {totals.length === 0 ? (
             <p className="text-xs text-muted-foreground">報酬が設定されていません。</p>
@@ -694,26 +677,29 @@ export default function AdminEventMissionsPage() {
             {events.map((event) => {
               const status = getEventStatus(event.startDate, event.endDate);
               return (
-                <div key={event.id} className="flex flex-wrap items-center gap-3 rounded-md border border-card-border bg-card p-3 shadow-card">
-                  <RewardIcon imageUrl={event.imageUrl} name={event.name} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-black">{event.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatJst(event.startDate)} 〜 {formatJst(event.endDate)}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
+                <div key={event.id} className="rounded-md border border-card-border bg-card p-4 shadow-card" data-testid={`card-admin-event-${event.id}`}>
+                  {/* 情報：画面幅いっぱいを使い、イベント名は通常の文章として折り返す */}
+                  <div className="min-w-0">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                       <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${EVENT_STATUS_STYLE[status]}`}>{EVENT_STATUS_LABEL[status]}</span>
                       <span className="rounded border border-border px-2 py-0.5 text-[10px] font-bold">{event.published ? "公開中" : "非公開"}</span>
                       <span className="text-[10px] text-muted-foreground">ミッション {event.missionCount}件</span>
                     </div>
+                    <h3 className="break-words text-sm font-black leading-snug">{event.name}</h3>
+                    <dl className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                      <div className="flex gap-2"><dt className="w-8 shrink-0">開始</dt><dd>{formatJst(event.startDate)}</dd></div>
+                      <div className="flex gap-2"><dt className="w-8 shrink-0">終了</dt><dd>{formatJst(event.endDate)}</dd></div>
+                    </dl>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => void startEdit(event.id)} className="inline-flex items-center gap-1 rounded border border-border px-2.5 py-1.5 text-[11px] font-bold"><Pencil size={12} />編集</button>
-                    <button type="button" onClick={() => void togglePublished(event)} className="inline-flex items-center gap-1 rounded border border-border px-2.5 py-1.5 text-[11px] font-bold">
+
+                  {/* 操作：情報とは別の行。幅が足りなければ折り返す */}
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                    <button type="button" onClick={() => void startEdit(event.id)} className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-border px-3 py-2 text-[11px] font-bold sm:flex-none"><Pencil size={12} />編集</button>
+                    <button type="button" onClick={() => void togglePublished(event)} className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-border px-3 py-2 text-[11px] font-bold sm:flex-none">
                       {event.published ? <EyeOff size={12} /> : <Eye size={12} />}
                       {event.published ? "非公開にする" : "公開する"}
                     </button>
-                    <button type="button" onClick={() => void removeEvent(event)} className="inline-flex items-center gap-1 rounded border border-red-200 px-2.5 py-1.5 text-[11px] font-bold text-red-600"><Trash2 size={12} />削除</button>
+                    <button type="button" onClick={() => void removeEvent(event)} className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-red-200 px-3 py-2 text-[11px] font-bold text-red-600 sm:flex-none"><Trash2 size={12} />削除</button>
                   </div>
                 </div>
               );

@@ -27,7 +27,7 @@ function isInt(value: number, min: number, max: number) {
 
 type CleanMission = {
   id: string;
-  name: string;
+  name: string; // 旧データ互換。新規ミッションは空
   condition: string;
   requiredCount: number;
   deadline: Date | null;
@@ -43,13 +43,16 @@ type CleanEvent = {
   imageUrl: string;
   startDate: Date;
   endDate: Date;
-  published: boolean;
+  published: boolean | undefined; // 未指定：新規は公開、更新は現在の状態を維持
   sortOrder: number;
   missions: CleanMission[];
 };
 
 /** 入力値のサーバー側検証。クライアントの検証には依存しない。 */
-function cleanEventBody(body: any): { value: CleanEvent } | { error: string } {
+function cleanEventBody(
+  body: any,
+  existing?: any,
+): { value: CleanEvent } | { error: string } {
   const name = String(body?.name ?? "").trim();
   if (!name) return { error: "イベント名を入力してください" };
   if (name.length > 100) return { error: "イベント名は100文字以内で入力してください" };
@@ -84,26 +87,36 @@ function cleanEventBody(body: any): { value: CleanEvent } | { error: string } {
     return { error: `ミッションは${MAX_MISSIONS}件までです` };
   }
 
+  // 既存ミッションの値（名前・達成数・期限・公開状態）は、画面から送られない場合は保持する
+  const existingById = new Map<string, any>(
+    (existing?.missions ?? []).map((mission: any) => [mission.id, mission]),
+  );
+
   const missions: CleanMission[] = [];
   const usedIds = new Set<string>();
 
   for (let index = 0; index < rawMissions.length; index += 1) {
     const raw = rawMissions[index] ?? {};
     const label = `ミッション${index + 1}`;
-
-    const missionName = String(raw.name ?? "").trim();
-    if (!missionName) return { error: `${label}の名前を入力してください` };
-    if (missionName.length > 100) return { error: `${label}の名前は100文字以内で入力してください` };
+    const previous = existingById.get(String(raw.id ?? "").trim());
 
     const condition = String(raw.condition ?? "").trim();
-    if (condition.length > 1000) return { error: `${label}の達成条件は1000文字以内で入力してください` };
+    if (condition.length > 1000) return { error: `${label}のミッション内容は1000文字以内で入力してください` };
 
-    const requiredCount = Number(raw.requiredCount ?? 1);
+    const missionName =
+      raw.name === undefined ? String(previous?.name ?? "") : String(raw.name ?? "").trim();
+    if (missionName.length > 100) return { error: `${label}の名前は100文字以内で入力してください` };
+
+    if (!condition && !missionName) return { error: `${label}のミッション内容を入力してください` };
+
+    const requiredCount =
+      raw.requiredCount === undefined ? Number(previous?.requiredCount ?? 1) : Number(raw.requiredCount);
     if (!isInt(requiredCount, 1, MAX_REQUIRED_COUNT)) {
       return { error: `${label}の必要な達成数は1以上の整数で入力してください` };
     }
 
-    const deadline = parseOptionalDate(raw.deadline);
+    const deadline =
+      raw.deadline === undefined ? (previous?.deadline ?? null) : parseOptionalDate(raw.deadline);
     if (deadline === "invalid") return { error: `${label}の期限を正しく入力してください` };
 
     const rawRewards: any[] = Array.isArray(raw.rewards) ? raw.rewards : [];
@@ -134,7 +147,8 @@ function cleanEventBody(body: any): { value: CleanEvent } | { error: string } {
       deadline,
       rewards,
       sortOrder: index, // 配列の順序＝表示順
-      published: raw.published !== false,
+      published:
+        raw.published === undefined ? previous?.published !== false : raw.published !== false,
     });
   }
 
@@ -146,7 +160,7 @@ function cleanEventBody(body: any): { value: CleanEvent } | { error: string } {
       imageUrl,
       startDate,
       endDate,
-      published: body?.published === true,
+      published: typeof body?.published === "boolean" ? body.published : undefined,
       sortOrder,
       missions,
     },
@@ -288,7 +302,12 @@ router.post("/admin/event-missions", requireAuth, requireAdmin, async (req, res)
     const check = await validateRewardItemIds(itemIds);
     if (!check.ok) return res.status(400).json({ message: check.message });
 
-    const event = await MissionEvent.create({ ...parsed.value, id: newId("event-mission") });
+    // 新規登録は、公開状態の指定がなければ公開（API側の初期値）
+    const event = await MissionEvent.create({
+      ...parsed.value,
+      published: parsed.value.published ?? true,
+      id: newId("event-mission"),
+    });
     return res.status(201).json(await hydrateEvent(event.toObject(), { publicOnly: false }));
   } catch (error) {
     console.error("[admin/event-missions] create failed:", error);
@@ -297,14 +316,14 @@ router.post("/admin/event-missions", requireAuth, requireAdmin, async (req, res)
 });
 
 router.put("/admin/event-missions/:id", requireAuth, requireAdmin, async (req, res) => {
-  const parsed = cleanEventBody(req.body);
-  if ("error" in parsed) return res.status(400).json({ message: parsed.error });
-
   try {
     await connectDB();
 
     const existing = await MissionEvent.findOne({ id: req.params.id }).lean();
     if (!existing) return res.status(404).json({ message: "イベントが見つかりません" });
+
+    const parsed = cleanEventBody(req.body, existing);
+    if ("error" in parsed) return res.status(400).json({ message: parsed.error });
 
     // 既にこのイベントが参照しているアイテムは、無効化されていても再保存を許可する
     const allowInactive = new Set<string>(
@@ -317,7 +336,11 @@ router.put("/admin/event-missions/:id", requireAuth, requireAdmin, async (req, r
     const check = await validateRewardItemIds(itemIds, allowInactive);
     if (!check.ok) return res.status(400).json({ message: check.message });
 
-    const event = await MissionEvent.findOneAndUpdate({ id: req.params.id }, parsed.value, {
+    // 公開状態が送られていない場合は、現在の状態を変更しない
+    const { published, ...rest } = parsed.value;
+    const update = published === undefined ? rest : parsed.value;
+
+    const event = await MissionEvent.findOneAndUpdate({ id: req.params.id }, update, {
       new: true,
       runValidators: true,
     }).lean();

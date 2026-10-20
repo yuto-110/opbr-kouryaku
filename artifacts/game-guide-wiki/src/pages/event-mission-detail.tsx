@@ -163,20 +163,24 @@ export default function EventMissionDetailPage() {
               const closed = mission.deadline ? now > new Date(mission.deadline).getTime() : false;
               return (
                 <article key={mission.id} className="rounded-md border border-card-border bg-card p-5 shadow-card" data-testid={`card-mission-${mission.id}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h3 className="break-words text-base font-black">
-                      <span className="mr-2 text-primary">{index + 1}</span>
-                      {mission.name}
-                    </h3>
-                    {mission.deadline ? (
-                      <span className={`rounded border px-2 py-0.5 text-[11px] font-bold ${closed ? EVENT_STATUS_STYLE.ended : EVENT_STATUS_STYLE.ongoing}`}>
-                        {closed ? "受付終了" : "期限"}：{formatJst(mission.deadline)}
-                      </span>
-                    ) : null}
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-black text-primary">{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      {mission.name ? <h3 className="break-words text-base font-black">{mission.name}</h3> : null}
+                      {mission.condition ? (
+                        <p className={`whitespace-pre-wrap break-words text-sm leading-6 ${mission.name ? "mt-1" : "font-bold"}`}>{mission.condition}</p>
+                      ) : null}
+                      {/* 旧データに期限・達成数が残っている場合のみ表示（現在は入力不要の項目） */}
+                      {mission.deadline ? (
+                        <p className={`mt-1 text-xs ${closed ? "text-muted-foreground" : "font-bold"}`}>
+                          {closed ? "受付終了" : "期限"}：{formatJst(mission.deadline)}
+                        </p>
+                      ) : null}
+                      {mission.requiredCount > 1 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">必要な達成数：{mission.requiredCount.toLocaleString("ja-JP")}</p>
+                      ) : null}
+                    </div>
                   </div>
-
-                  {mission.condition ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{mission.condition}</p> : null}
-                  <p className="mt-1 text-xs text-muted-foreground">必要な達成数：{mission.requiredCount.toLocaleString("ja-JP")}</p>
 
                   {mission.rewards.length > 0 ? (
                     <div className="mt-4">

@@ -80,13 +80,24 @@ export async function resolveRewardItems(
 }
 
 /**
+ * 報酬候補に含めるカテゴリの指定を取り出す。未指定は「通常アイテムのみ」。
+ * 明示的な空配列（すべてOFF）は、新しい報酬を選べない状態として扱う。
+ */
+export function parseRewardCategories(value: unknown): RewardItemCategory[] {
+  if (!Array.isArray(value)) return ["normal"];
+  return REWARD_ITEM_CATEGORIES.filter((category) => value.includes(category));
+}
+
+/**
  * 保存時の参照チェック。存在しない id は常に不可。
- * 無効なアイテムは、allowInactive（既にその報酬が参照している id）に含まれる場合だけ許可する。
- * → アイテムを無効化しても、既存の報酬を再保存できる。
+ * existing（そのデータが既に参照している id）は、無効化済み・選択対象外カテゴリでも再保存できる。
+ * → 既存の報酬は、アイテムの無効化やカテゴリ設定の変更で消えたり保存不能になったりしない。
+ * allowedCategories を渡した場合、existing 以外のアイテムはそのカテゴリのものだけ選べる。
  */
 export async function validateRewardItemIds(
   ids: string[],
-  allowInactive: Set<string> = new Set(),
+  existing: Set<string> = new Set(),
+  allowedCategories?: RewardItemCategory[],
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const unique = [...new Set(ids)];
   if (unique.some((id) => !id)) {
@@ -101,7 +112,7 @@ export async function validateRewardItemIds(
   }
 
   const inactive = unique.filter(
-    (id) => resolved.get(id)?.active === false && !allowInactive.has(id),
+    (id) => resolved.get(id)?.active === false && !existing.has(id),
   );
   if (inactive.length > 0) {
     const names = inactive.map((id) => resolved.get(id)?.name ?? id).join("、");
@@ -109,6 +120,25 @@ export async function validateRewardItemIds(
       ok: false,
       message: `無効化されているアイテムは新しく選択できません：${names}`,
     };
+  }
+
+  if (allowedCategories) {
+    const notAllowed = unique.filter((id) => {
+      const item = resolved.get(id);
+      return item && !existing.has(id) && !allowedCategories.includes(item.category);
+    });
+    if (notAllowed.length > 0) {
+      const names = notAllowed
+        .map((id) => {
+          const item = resolved.get(id);
+          return `${item?.name ?? id}（${item?.categoryLabel ?? ""}）`;
+        })
+        .join("、");
+      return {
+        ok: false,
+        message: `現在の設定では報酬に選べない種類のアイテムです：${names}`,
+      };
+    }
   }
 
   return { ok: true };

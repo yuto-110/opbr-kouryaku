@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { ChallengeBattle, ChallengeRewardItem, connectDB } from "@workspace/db";
+import { ChallengeBattle, connectDB } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
-import { resolveRewardItems, validateRewardItemIds } from "../lib/reward-items";
+import {
+  parseRewardCategories,
+  resolveRewardItems,
+  validateRewardItemIds,
+} from "../lib/reward-items";
 
 const router: IRouter = Router();
 
@@ -119,16 +123,6 @@ function validateBattle(input: ReturnType<typeof cleanBattleBody>) {
 
 
 
-function cleanItemBody(body: any) {
-  return {
-    name: String(body?.name ?? "").trim(),
-    imageUrl: String(body?.imageUrl ?? "").trim(),
-    description: String(body?.description ?? "").trim(),
-    active: body?.active !== false,
-  };
-}
-
-
 async function hydrateBattle(battle: any) {
   const data =
     typeof battle?.toObject === "function" ? battle.toObject() : battle;
@@ -211,50 +205,6 @@ router.get("/challenge-battles/:id", async (req, res) => {
 });
 
 // 報酬アイテム管理
-router.get("/admin/challenge-reward-items", requireAuth, requireAdmin, async (_req, res) => {
-  await connectDB();
-  return res.json(await ChallengeRewardItem.find().sort({ name: 1 }).lean());
-});
-
-router.post("/admin/challenge-reward-items", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const input = cleanItemBody(req.body);
-    if (!input.name) return res.status(400).json({ message: "報酬名を入力してください" });
-    await connectDB();
-    const item = await ChallengeRewardItem.create({ ...input, id: newId("challenge-reward") });
-    return res.status(201).json(item);
-  } catch (error) {
-    console.error("[challenge-reward-items] create failed:", error);
-    return res.status(400).json({ message: "報酬アイテムを保存できませんでした" });
-  }
-});
-
-router.put("/admin/challenge-reward-items/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const input = cleanItemBody(req.body);
-    if (!input.name) return res.status(400).json({ message: "報酬名を入力してください" });
-    await connectDB();
-    const item = await ChallengeRewardItem.findOneAndUpdate(
-      { id: req.params.id }, input, { new: true, runValidators: true },
-    ).lean();
-    if (!item) return res.status(404).json({ message: "報酬アイテムが見つかりません" });
-    return res.json(item);
-  } catch (error) {
-    console.error("[challenge-reward-items] update failed:", error);
-    return res.status(400).json({ message: "報酬アイテムを更新できませんでした" });
-  }
-});
-
-router.delete("/admin/challenge-reward-items/:id", requireAuth, requireAdmin, async (req, res) => {
-  await connectDB();
-  const item = await ChallengeRewardItem.findOneAndUpdate(
-    { id: req.params.id }, { active: false }, { new: true },
-  ).lean();
-  if (!item) return res.status(404).json({ message: "報酬アイテムが見つかりません" });
-  return res.json({ ok: true });
-});
-
-// チャレバト管理
 router.get("/admin/challenge-battles", requireAuth, requireAdmin, async (_req, res) => {
   await connectDB();
   const battles = await ChallengeBattle.find().sort({ startDate: -1 }).lean();
@@ -281,7 +231,12 @@ router.post("/admin/challenge-battles", requireAuth, requireAdmin, async (req, r
 
 
     // 共通アイテム（通常・メダル継承用・メダル）に存在する、有効なアイテムだけ選択できる
-    const itemCheck = await validateRewardItemIds(itemIds);
+    // 新しく選べるのは、管理画面で報酬候補としてONにしている種類のアイテムだけ
+    const itemCheck = await validateRewardItemIds(
+      itemIds,
+      new Set(),
+      parseRewardCategories(req.body?.rewardCategories),
+    );
     if (!itemCheck.ok) {
       return res.status(400).json({ message: itemCheck.message });
     }
@@ -330,7 +285,11 @@ router.put("/admin/challenge-battles/:id", requireAuth, requireAdmin, async (req
       for (const reward of ranking.rewards ?? []) referencedIds.add(reward.itemId);
     }
 
-    const itemCheck = await validateRewardItemIds(itemIds, referencedIds);
+    const itemCheck = await validateRewardItemIds(
+      itemIds,
+      referencedIds,
+      parseRewardCategories(req.body?.rewardCategories),
+    );
     if (!itemCheck.ok) {
       return res.status(400).json({ message: itemCheck.message });
     }

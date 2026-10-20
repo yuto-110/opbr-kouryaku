@@ -43,7 +43,8 @@ const missionRewardSchema = new Schema<IMissionReward>(
 const missionEntrySchema = new Schema<IMissionEntry>(
   {
     id: { type: String, required: true },
-    name: { type: String, required: true, trim: true },
+    // 旧データ互換のため保持。新規ミッションは空（ミッション内容 condition が主）
+    name: { type: String, trim: true, default: "" },
     condition: { type: String, trim: true, default: "" },
     requiredCount: { type: Number, required: true, min: 1, default: 1 },
     deadline: { type: Date, default: null },
@@ -63,7 +64,7 @@ const missionEventSchema = new Schema<IMissionEvent>(
     imageUrl: { type: String, trim: true, default: "" },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
-    published: { type: Boolean, default: false },
+    published: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
     missions: { type: [missionEntrySchema], default: [] },
   },

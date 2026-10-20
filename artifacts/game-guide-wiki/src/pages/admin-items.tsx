@@ -163,10 +163,15 @@ export default function AdminItemsPage() {
         title="共通アイテム管理"
         description="チャレバト・イベントミッションなどの報酬で共通利用するアイテムを管理します。メダルはメダル管理画面の登録内容をそのまま利用します。"
         action={
-          <Link href="/admin" className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-xs font-bold">
-            <ArrowLeft size={14} />
-            管理画面へ
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/medals" className="rounded-md border border-border px-3 py-2 text-xs font-bold">
+              メダルを登録・編集
+            </Link>
+            <Link href="/admin" className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-xs font-bold">
+              <ArrowLeft size={14} />
+              管理画面へ
+            </Link>
+          </div>
         }
       />
 

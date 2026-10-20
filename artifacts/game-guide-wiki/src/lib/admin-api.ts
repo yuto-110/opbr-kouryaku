@@ -125,7 +125,7 @@ const jstFormatter = new Intl.DateTimeFormat("ja-JP", {
 export function formatJst(value: string | null | undefined): string {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : `${jstFormatter.format(date)} (JST)`;
+  return Number.isNaN(date.getTime()) ? "" : jstFormatter.format(date);
 }
 
 export type EventStatus = "upcoming" | "ongoing" | "ended";
