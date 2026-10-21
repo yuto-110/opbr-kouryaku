@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { MissionEvent, connectDB } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
-import { resolveRewardItems, validateRewardItemIds } from "../lib/reward-items";
+import {
+  FEATURE_DEFAULT_CATEGORIES,
+  findFixedQuantityViolation,
+  parseRewardCategories,
+  resolveRewardItems,
+  validateRewardItemIds,
+} from "../lib/reward-items";
 
 const router: IRouter = Router();
 
@@ -196,8 +202,15 @@ async function hydrateEvent(event: any, options: { publicOnly: boolean }) {
   for (const mission of hydratedMissions) {
     for (const reward of mission.rewards) {
       const current = totals.get(reward.itemId);
-      if (current) current.quantity += reward.quantity;
-      else totals.set(reward.itemId, { itemId: reward.itemId, quantity: reward.quantity, item: reward.item });
+      if (current) {
+        if (!reward.item?.fixedQuantity) current.quantity += reward.quantity;
+      } else {
+        totals.set(reward.itemId, {
+          itemId: reward.itemId,
+          quantity: reward.item?.fixedQuantity ? 1 : reward.quantity,
+          item: reward.item,
+        });
+      }
     }
   }
 
@@ -298,9 +311,20 @@ router.post("/admin/event-missions", requireAuth, requireAdmin, async (req, res)
   try {
     await connectDB();
 
-    const itemIds = parsed.value.missions.flatMap((mission) => mission.rewards.map((reward) => reward.itemId));
-    const check = await validateRewardItemIds(itemIds);
+    // 新しく選べるのは、報酬候補としてONにしているカテゴリのアイテムだけ（未指定は初期設定）
+    const allowedCategories = parseRewardCategories(
+      req.body?.rewardCategories,
+      FEATURE_DEFAULT_CATEGORIES.eventMission,
+    );
+    const rewardRows = parsed.value.missions.flatMap((mission) => mission.rewards);
+    const check = await validateRewardItemIds(
+      rewardRows.map((reward) => reward.itemId),
+      new Set(),
+      allowedCategories,
+    );
     if (!check.ok) return res.status(400).json({ message: check.message });
+    const quantityError = findFixedQuantityViolation(rewardRows, check.resolved);
+    if (quantityError) return res.status(400).json({ message: quantityError });
 
     // 新規登録は、公開状態の指定がなければ公開（API側の初期値）
     const event = await MissionEvent.create({
@@ -332,9 +356,19 @@ router.put("/admin/event-missions/:id", requireAuth, requireAdmin, async (req, r
       ),
     );
 
-    const itemIds = parsed.value.missions.flatMap((mission) => mission.rewards.map((reward) => reward.itemId));
-    const check = await validateRewardItemIds(itemIds, allowInactive);
+    const allowedCategories = parseRewardCategories(
+      req.body?.rewardCategories,
+      FEATURE_DEFAULT_CATEGORIES.eventMission,
+    );
+    const rewardRows = parsed.value.missions.flatMap((mission) => mission.rewards);
+    const check = await validateRewardItemIds(
+      rewardRows.map((reward) => reward.itemId),
+      allowInactive,
+      allowedCategories,
+    );
     if (!check.ok) return res.status(400).json({ message: check.message });
+    const quantityError = findFixedQuantityViolation(rewardRows, check.resolved);
+    if (quantityError) return res.status(400).json({ message: quantityError });
 
     // 公開状態が送られていない場合は、現在の状態を変更しない
     const { published, ...rest } = parsed.value;

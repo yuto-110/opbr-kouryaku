@@ -1,7 +1,9 @@
 import { Schema, model, type Document } from "mongoose";
 
-// 共通アイテムの種類。メダル本体は Medal コレクションを正とするため、ここには含めない。
-export type RewardItemStoredCategory = "normal" | "medal-inheritance";
+// 共通アイテムの種類（例: normal / event / medal-material / title / background / medal-inheritance）。
+// 有効な値は API 側のカテゴリ定義（api-server/src/lib/reward-items.ts）で検証する。
+// メダル本体は Medal コレクションを正とするため、ここには保存しない。
+export type RewardItemStoredCategory = string;
 
 export interface IChallengeRewardItem extends Document {
   id: string;
@@ -57,11 +59,7 @@ const challengeRewardItemSchema = new Schema<IChallengeRewardItem>(
   {
     id: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true },
-    category: {
-      type: String,
-      enum: ["normal", "medal-inheritance"],
-      default: "normal",
-    },
+    category: { type: String, default: "normal" },
     imageUrl: { type: String, trim: true, default: "" },
     description: { type: String, trim: true, default: "" },
     active: { type: Boolean, default: true },

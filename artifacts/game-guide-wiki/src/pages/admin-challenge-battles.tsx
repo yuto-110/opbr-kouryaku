@@ -4,6 +4,14 @@ import { ArrowLeft, Plus, Save, Pencil, Trash2, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { PublishToggle } from "@/components/publish-toggle";
+import { RewardCategorySettings } from "@/components/reward-category-settings";
+import {
+  FALLBACK_CATEGORIES,
+  FALLBACK_FEATURE_DEFAULTS,
+  type RewardCategoryInfo,
+  type RewardItemsResponse,
+} from "@/lib/reward-items";
+import { useRewardCategorySetting } from "@/lib/use-reward-categories";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -16,9 +24,10 @@ type RewardItem = {
   imageUrl: string;
   description: string;
   active: boolean;
-  // 共通アイテム管理から取得（通常アイテム / メダル / メダル継承用アイテム）
-  category?: RewardCategory;
+  // 共通アイテム管理から取得（カテゴリはAPIの定義）
+  category?: string;
   categoryLabel?: string;
+  fixedQuantity?: boolean; // 称号・背景など個数を持たない（常に1）
 };
 
 type Reward = {
@@ -66,31 +75,8 @@ const rewardTypes: { value: RewardType; label: string }[] = [
   { value: "passPremiumRewards", label: "イベントパスプレミアム報酬" },
 ];
 
-// 報酬候補に含めるアイテムの種類。設定は全チャレバト共通で、このブラウザに保存する。
-type RewardCategory = "normal" | "medal" | "medal-inheritance";
-
-const REWARD_CATEGORY_OPTIONS: { value: RewardCategory; label: string }[] = [
-  { value: "normal", label: "通常アイテム" },
-  { value: "medal", label: "メダル" },
-  { value: "medal-inheritance", label: "メダル継承用アイテム" },
-];
-
+// 報酬候補に含めるカテゴリの設定は、全チャレバト共通でこのブラウザに保存する（初期値は通常アイテムのみ）
 const REWARD_CATEGORY_STORAGE_KEY = "opbr_challenge_reward_categories";
-const DEFAULT_REWARD_CATEGORIES: RewardCategory[] = ["normal"];
-
-function loadRewardCategories(): RewardCategory[] {
-  try {
-    const raw = window.localStorage.getItem(REWARD_CATEGORY_STORAGE_KEY);
-    if (!raw) return DEFAULT_REWARD_CATEGORIES;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return DEFAULT_REWARD_CATEGORIES;
-    return REWARD_CATEGORY_OPTIONS.map((option) => option.value).filter((value) =>
-      parsed.includes(value),
-    );
-  } catch {
-    return DEFAULT_REWARD_CATEGORIES;
-  }
-}
 
 const emptyBattle = (): BattleForm => ({
   active: true,
@@ -283,8 +269,14 @@ export default function AdminChallengeBattlesPage() {
 
   // 共通アイテム管理に登録されているアイテム（通常アイテム・メダル・メダル継承用アイテム）
   const [selectableItems, setSelectableItems] = useState<RewardItem[]>([]);
-  const [rewardCategories, setRewardCategories] =
-    useState<RewardCategory[]>(loadRewardCategories);
+  const [categories, setCategories] = useState<RewardCategoryInfo[]>(FALLBACK_CATEGORIES);
+  const [featureDefaults, setFeatureDefaults] = useState(FALLBACK_FEATURE_DEFAULTS);
+  const categorySetting = useRewardCategorySetting(
+    REWARD_CATEGORY_STORAGE_KEY,
+    featureDefaults.challengeBattle,
+    categories.map((info) => info.value),
+  );
+  const rewardCategories = categorySetting.value;
   const [battles, setBattles] = useState<Battle[]>([]);
   const [battleForm, setBattleForm] = useState<BattleForm>(emptyBattle());
   const [editingBattleId, setEditingBattleId] = useState<string | null>(null);
@@ -425,8 +417,10 @@ export default function AdminChallengeBattlesPage() {
       throw new Error("チャレバト管理データの取得に失敗しました");
     }
 
-    const shared = (await itemResponse.json()) as { items: RewardItem[] };
+    const shared = (await itemResponse.json()) as RewardItemsResponse;
     setSelectableItems(shared.items);
+    setCategories(shared.categories);
+    setFeatureDefaults(shared.featureDefaults);
     setBattles((await battleResponse.json()) as Battle[]);
   }
 
@@ -691,10 +685,13 @@ export default function AdminChallengeBattlesPage() {
     for (const tier of battleForm.scoreRewards) {
       for (const type of types) {
         for (const reward of tier[type] ?? []) {
+          // 称号・背景など個数を持たないアイテムは、何件あっても1
           counts.set(
             reward.itemId,
-            (counts.get(reward.itemId) ?? 0) +
-              Math.max(0, Number(reward.quantity) || 0),
+            isFixedQuantity(reward.itemId)
+              ? 1
+              : (counts.get(reward.itemId) ?? 0) +
+                  Math.max(0, Number(reward.quantity) || 0),
           );
         }
       }
@@ -947,19 +944,9 @@ export default function AdminChallengeBattlesPage() {
     item.active && rewardCategories.includes(item.category ?? "normal");
   const rewardItemOptions = selectableItems.filter(isSelectable);
 
-  function toggleRewardCategory(category: RewardCategory) {
-    setRewardCategories((current) => {
-      const next = REWARD_CATEGORY_OPTIONS.map((option) => option.value).filter(
-        (value) => (value === category ? !current.includes(value) : current.includes(value)),
-      );
-      try {
-        window.localStorage.setItem(REWARD_CATEGORY_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // 保存できなくても、この画面では反映される
-      }
-      return next;
-    });
-  }
+  // 称号・背景など個数を持たないアイテムは、個数を1に固定する
+  const isFixedQuantity = (itemId: string) =>
+    Boolean(selectableItems.find((item) => item.id === itemId)?.fixedQuantity);
 
   function rewardItemSelect(
     value: string,
@@ -996,22 +983,25 @@ export default function AdminChallengeBattlesPage() {
   function rewardQuantityInput(
     quantity: number | "",
     onChange: (quantity: number | "") => void,
+    itemId: string,
   ) {
+    const fixed = isFixedQuantity(itemId);
     return (
       <label className="text-xs font-bold">
-        個数
+        {fixed ? "個数（固定）" : "個数"}
         <input
           type="number"
           min="1"
           step="1"
-          value={quantity}
+          disabled={fixed}
+          value={fixed ? 1 : quantity}
           placeholder="個数"
           onChange={(event) =>
             onChange(
               event.target.value === "" ? "" : Number(event.target.value),
             )
           }
-          className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm"
+          className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm disabled:opacity-60"
         />
       </label>
     );
@@ -1031,7 +1021,7 @@ export default function AdminChallengeBattlesPage() {
               className="flex items-center justify-between gap-2 py-1 text-sm"
             >
               <span>{item?.name ?? itemId}</span>
-              <b>×{quantity}</b>
+              {item?.fixedQuantity ? null : <b>×{quantity}</b>}
             </div>
           ))
         ) : (
@@ -1072,25 +1062,14 @@ export default function AdminChallengeBattlesPage() {
         </p>
       ) : null}
 
-      <section className="rounded-md border border-card-border bg-card p-5 shadow-card" data-testid="section-reward-categories">
-        <h2 className="mb-1 text-lg font-black">報酬候補に含めるアイテムの種類</h2>
-        <p className="mb-3 text-xs leading-5 text-muted-foreground">
-          ONにした種類のアイテムだけが、新しい報酬の選択肢に表示されます。この設定は<strong>すべてのチャレバトで共通</strong>で、このブラウザに保存されます。
-          すでに保存済みの報酬は、設定を変えても削除・変更されません。
-        </p>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {REWARD_CATEGORY_OPTIONS.map((option) => (
-            <label key={option.value} className="flex items-center gap-2 text-sm font-bold">
-              <input
-                type="checkbox"
-                checked={rewardCategories.includes(option.value)}
-                onChange={() => toggleRewardCategory(option.value)}
-                data-testid={`checkbox-reward-category-${option.value}`}
-              />
-              {option.label}
-            </label>
-          ))}
-        </div>
+      <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
+        <RewardCategorySettings
+          categories={categories}
+          value={rewardCategories}
+          onToggle={categorySetting.toggle}
+          testIdPrefix="reward-category"
+          scopeNote="ONにした種類のアイテムだけが、新しい報酬の選択肢に表示されます。この設定はすべてのチャレバトで共通で、このブラウザに保存されます（初期値は通常アイテムのみ）。すでに保存済みの報酬は、設定を変えても削除・変更されません。"
+        />
         <p className="mt-3 text-xs text-muted-foreground">
           アイテムの登録・編集は
           <Link href="/admin/items" className="mx-1 font-bold text-primary underline">共通アイテム管理</Link>
@@ -1332,13 +1311,21 @@ export default function AdminChallengeBattlesPage() {
                       className="grid gap-2 sm:grid-cols-[1fr_120px_auto]"
                     >
                       {rewardItemSelect(reward.itemId, (itemId) =>
-                        updateReward(tierIndex, type, rewardIndex, { itemId }),
+                        updateReward(
+                          tierIndex,
+                          type,
+                          rewardIndex,
+                          isFixedQuantity(itemId) ? { itemId, quantity: 1 } : { itemId },
+                        ),
                       )}
 
-                      {rewardQuantityInput(reward.quantity, (quantity) =>
-                        updateReward(tierIndex, type, rewardIndex, {
-                          quantity,
-                        }),
+                      {rewardQuantityInput(
+                        reward.quantity,
+                        (quantity) =>
+                          updateReward(tierIndex, type, rewardIndex, {
+                            quantity,
+                          }),
+                        reward.itemId,
                       )}
 
                       <button
@@ -1457,15 +1444,20 @@ export default function AdminChallengeBattlesPage() {
                   className="grid gap-2 sm:grid-cols-[1fr_120px_auto]"
                 >
                   {rewardItemSelect(reward.itemId, (itemId) =>
-                    updateRankingReward(rankingIndex, rewardIndex, {
-                      itemId,
-                    }),
+                    updateRankingReward(
+                      rankingIndex,
+                      rewardIndex,
+                      isFixedQuantity(itemId) ? { itemId, quantity: 1 } : { itemId },
+                    ),
                   )}
 
-                  {rewardQuantityInput(reward.quantity, (quantity) =>
-                    updateRankingReward(rankingIndex, rewardIndex, {
-                      quantity,
-                    }),
+                  {rewardQuantityInput(
+                    reward.quantity,
+                    (quantity) =>
+                      updateRankingReward(rankingIndex, rewardIndex, {
+                        quantity,
+                      }),
+                    reward.itemId,
                   )}
 
                   <button

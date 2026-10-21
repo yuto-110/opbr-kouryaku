@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { RewardIcon } from "@/components/reward-icon";
 import { PublishToggle } from "@/components/publish-toggle";
+import { RewardCategorySettings } from "@/components/reward-category-settings";
 import { RewardItemPicker } from "@/components/reward-item-picker";
 import {
   EVENT_STATUS_LABEL,
@@ -16,7 +17,16 @@ import {
   uploadImageFile,
 } from "@/lib/admin-api";
 import { useFormDraft } from "@/lib/use-form-draft";
-import { aggregateRewards, type RewardItemOption, type RewardRow } from "@/lib/reward-items";
+import {
+  FALLBACK_CATEGORIES,
+  FALLBACK_FEATURE_DEFAULTS,
+  aggregateRewards,
+  type RewardCategoryInfo,
+  type RewardItemOption,
+  type RewardItemsResponse,
+  type RewardRow,
+} from "@/lib/reward-items";
+import { useRewardCategorySetting } from "@/lib/use-reward-categories";
 
 // 画面で入力するのは「ミッション内容(condition)」と「報酬(rewards)」だけ。
 // name / requiredCount / deadline / published は旧データ互換のため値を保持し、そのまま送り返す（画面には出さない）。
@@ -178,8 +188,16 @@ function validateForm(form: EventForm): string | null {
   return null;
 }
 
-function buildPayload(form: EventForm, imageUrl: string) {
+const EVENT_REWARD_CATEGORY_KEY = "opbr_event_mission_reward_categories";
+
+function buildPayload(
+  form: EventForm,
+  imageUrl: string,
+  rewardCategories: string[],
+  fixedQuantityIds: ReadonlySet<string>,
+) {
   return {
+    rewardCategories,
     name: form.name.trim(),
     eventCategory: form.eventCategory.trim() || "ミッション",
     description: form.description,
@@ -195,7 +213,11 @@ function buildPayload(form: EventForm, imageUrl: string) {
       requiredCount: mission.requiredCount,
       deadline: mission.deadline ? fromJstInput(mission.deadline) : null,
       published: mission.published,
-      rewards: mission.rewards.map((reward) => ({ itemId: reward.itemId, quantity: reward.quantity })),
+      rewards: mission.rewards.map((reward) => ({
+        itemId: reward.itemId,
+        // 称号・背景など個数を持たないアイテムは常に1
+        quantity: fixedQuantityIds.has(reward.itemId) ? 1 : reward.quantity,
+      })),
     })),
   };
 }
@@ -211,6 +233,8 @@ function move<T>(list: T[], index: number, delta: -1 | 1): T[] {
 export default function AdminEventMissionsPage() {
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [items, setItems] = useState<RewardItemOption[]>([]);
+  const [categories, setCategories] = useState<RewardCategoryInfo[]>(FALLBACK_CATEGORIES);
+  const [featureDefaults, setFeatureDefaults] = useState(FALLBACK_FEATURE_DEFAULTS);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<EventForm>(emptyEvent());
@@ -239,9 +263,11 @@ export default function AdminEventMissionsPage() {
       try {
         const [, itemData] = await Promise.all([
           loadEvents(),
-          apiRequest<{ items: RewardItemOption[] }>("/admin/reward-items", { admin: true }),
+          apiRequest<RewardItemsResponse>("/admin/reward-items", { admin: true }),
         ]);
         setItems(itemData.items);
+        setCategories(itemData.categories);
+        setFeatureDefaults(itemData.featureDefaults);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
       } finally {
@@ -251,9 +277,21 @@ export default function AdminEventMissionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // このイベントミッションで報酬候補にするカテゴリ（設定。初期値はAPIの機能別初期設定）
+  const categorySetting = useRewardCategorySetting(
+    EVENT_REWARD_CATEGORY_KEY,
+    featureDefaults.eventMission,
+    categories.map((info) => info.value),
+  );
+
+  const fixedQuantityIds = useMemo(
+    () => new Set(items.filter((item) => item.fixedQuantity).map((item) => item.id)),
+    [items],
+  );
+
   const totals = useMemo(
-    () => aggregateRewards(form.missions.flatMap((mission) => mission.rewards)),
-    [form.missions],
+    () => aggregateRewards(form.missions.flatMap((mission) => mission.rewards), fixedQuantityIds),
+    [form.missions, fixedQuantityIds],
   );
 
   const draftDirty = draft.status.kind === "pending" || draft.status.kind === "saved";
@@ -333,7 +371,7 @@ export default function AdminEventMissionsPage() {
       await apiRequest(savingId ? `/admin/event-missions/${savingId}` : "/admin/event-missions", {
         method: savingId ? "PUT" : "POST",
         admin: true,
-        body: buildPayload(form, imageUrl),
+        body: buildPayload(form, imageUrl, categorySetting.value, fixedQuantityIds),
         timeoutMs: 90_000,
       });
 
@@ -493,6 +531,16 @@ export default function AdminEventMissionsPage() {
           </div>
         </div>
 
+        <div className="mt-8">
+          <RewardCategorySettings
+            categories={categories}
+            value={categorySetting.value}
+            onToggle={categorySetting.toggle}
+            testIdPrefix="event-mission-reward-category"
+            scopeNote="ONにした種類のアイテムだけが、このイベントミッションの新しい報酬の選択肢に表示されます。この設定はすべてのイベントミッションで共通で、このブラウザに保存されます（チャレバトの設定とは別）。すでに保存済みの報酬は、設定を変えても削除・変更されません。"
+          />
+        </div>
+
         {/* ---------- ミッション ---------- */}
         <div className="mt-8">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -578,20 +626,30 @@ export default function AdminEventMissionsPage() {
                           <div className="min-w-0 flex-1">
                             <RewardItemPicker
                               items={items}
+                              categories={categories}
+                              allowedCategories={categorySetting.value}
                               value={reward.itemId}
-                              onChange={(itemId) => patchReward(index, rewardIndex, { itemId })}
+                              onChange={(itemId) =>
+                                patchReward(
+                                  index,
+                                  rewardIndex,
+                                  itemMap.get(itemId)?.fixedQuantity ? { itemId, quantity: 1 } : { itemId },
+                                )
+                              }
+                              testId={`select-reward-item-${index}-${rewardIndex}`}
                             />
                           </div>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                           <label className="flex items-center gap-2 text-xs font-bold">
-                            個数
+                            {itemMap.get(reward.itemId)?.fixedQuantity ? "個数（固定）" : "個数"}
                             <input
                               type="number"
                               min={1}
-                              value={reward.quantity}
+                              disabled={Boolean(itemMap.get(reward.itemId)?.fixedQuantity)}
+                              value={itemMap.get(reward.itemId)?.fixedQuantity ? 1 : reward.quantity}
                               onChange={(e) => patchReward(index, rewardIndex, { quantity: e.target.value === "" ? "" : Number(e.target.value) })}
-                              className="w-28 rounded border border-border bg-background px-2 py-1.5 text-sm"
+                              className="w-28 rounded border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-60"
                             />
                           </label>
                           <div className="flex gap-1.5">
@@ -625,7 +683,8 @@ export default function AdminEventMissionsPage() {
                   <div key={total.itemId} className="flex items-center gap-2 rounded bg-secondary/60 p-2">
                     <RewardIcon imageUrl={item?.imageUrl} name={item?.name} size={32} />
                     <p className="min-w-0 break-words text-xs font-bold">
-                      {item?.name ?? "（不明なアイテム）"} <span className="text-primary">× {total.quantity.toLocaleString("ja-JP")}</span>
+                      {item?.name ?? "（不明なアイテム）"}{" "}
+                      {item?.fixedQuantity ? null : <span className="text-primary">× {total.quantity.toLocaleString("ja-JP")}</span>}
                     </p>
                   </div>
                 );

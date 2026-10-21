@@ -12,7 +12,13 @@ import {
   getEventStatus,
 } from "@/lib/admin-api";
 
-type RewardItem = { id: string; name: string; imageUrl: string; categoryLabel: string } | null;
+type RewardItem = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  categoryLabel: string;
+  fixedQuantity?: boolean;
+} | null;
 type Reward = { itemId: string; quantity: number; item: RewardItem };
 
 type Mission = {
@@ -43,7 +49,13 @@ function RewardChip({ reward }: { reward: Reward }) {
       <RewardIcon imageUrl={reward.item?.imageUrl} name={reward.item?.name} size={40} />
       <div className="min-w-0">
         <p className="break-words text-sm font-bold">{reward.item?.name ?? "登録済みアイテム"}</p>
-        <p className="text-xs font-bold text-primary">× {reward.quantity.toLocaleString("ja-JP")}</p>
+        {reward.item?.categoryLabel ? (
+          <p className="text-[10px] text-muted-foreground">{reward.item.categoryLabel}</p>
+        ) : null}
+        {/* 称号・背景など個数を持たないアイテムは「× 1」を表示しない */}
+        {reward.item?.fixedQuantity ? null : (
+          <p className="text-xs font-bold text-primary">× {reward.quantity.toLocaleString("ja-JP")}</p>
+        )}
       </div>
     </div>
   );

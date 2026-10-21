@@ -5,15 +5,16 @@ import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { RewardIcon } from "@/components/reward-icon";
 import { ApiError, apiRequest, uploadImageFile } from "@/lib/admin-api";
 import {
-  REWARD_CATEGORIES,
-  REWARD_CATEGORY_LABELS,
-  type RewardItemCategory,
+  FALLBACK_CATEGORIES,
+  categoryLabel,
+  type RewardCategoryInfo,
   type RewardItemOption,
+  type RewardItemsResponse,
 } from "@/lib/reward-items";
 
 type ItemForm = {
   name: string;
-  category: "normal" | "medal-inheritance";
+  category: string;
   description: string;
   imageUrl: string;
   active: boolean;
@@ -31,7 +32,8 @@ export default function AdminItemsPage() {
   const [items, setItems] = useState<RewardItemOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | RewardItemCategory>("all");
+  const [categories, setCategories] = useState<RewardCategoryInfo[]>(FALLBACK_CATEGORIES);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
 
   const [form, setForm] = useState<ItemForm>(emptyForm());
@@ -42,7 +44,8 @@ export default function AdminItemsPage() {
   const [error, setError] = useState("");
 
   async function load() {
-    const data = await apiRequest<{ items: RewardItemOption[] }>("/admin/reward-items", { admin: true });
+    const data = await apiRequest<RewardItemsResponse>("/admin/reward-items", { admin: true });
+    setCategories(data.categories);
     setItems(data.items);
   }
 
@@ -60,11 +63,11 @@ export default function AdminItemsPage() {
 
   const counts = useMemo(() => {
     const result: Record<string, number> = { all: items.length };
-    for (const category of REWARD_CATEGORIES) {
-      result[category] = items.filter((item) => item.category === category).length;
+    for (const info of categories) {
+      result[info.value] = items.filter((item) => item.category === info.value).length;
     }
     return result;
-  }, [items]);
+  }, [items, categories]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -81,7 +84,7 @@ export default function AdminItemsPage() {
     setEditingId(item.id);
     setForm({
       name: item.name,
-      category: item.category === "medal-inheritance" ? "medal-inheritance" : "normal",
+      category: item.category,
       description: item.description,
       imageUrl: item.imageUrl,
       active: item.active,
@@ -196,15 +199,23 @@ export default function AdminItemsPage() {
             カテゴリ
             <select
               value={form.category}
-              onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}
+              onChange={(event) => setForm({ ...form, category: event.target.value })}
               className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
               data-testid="select-item-category"
             >
-              <option value="normal">{REWARD_CATEGORY_LABELS.normal}</option>
-              <option value="medal-inheritance">{REWARD_CATEGORY_LABELS["medal-inheritance"]}</option>
+              {categories
+                .filter((info) => info.storable)
+                .map((info) => (
+                  <option key={info.value} value={info.value}>
+                    {info.label}
+                  </option>
+                ))}
             </select>
             <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
               メダル本体は「メダル管理」で登録すると、自動でここに表示されます。
+              {categories.find((info) => info.value === form.category)?.fixedQuantity
+                ? " このカテゴリは個数を持たず、報酬では常に1として扱われます。"
+                : ""}
             </span>
           </label>
 
@@ -272,7 +283,7 @@ export default function AdminItemsPage() {
         <h2 className="mb-3 text-lg font-black">アイテム一覧</h2>
 
         <div className="mb-3 flex flex-wrap gap-2">
-          {(["all", ...REWARD_CATEGORIES] as const).map((value) => (
+          {["all", ...categories.map((info) => info.value)].map((value) => (
             <button
               key={value}
               type="button"
@@ -281,7 +292,7 @@ export default function AdminItemsPage() {
                 categoryFilter === value ? "border-primary bg-primary/10 text-primary" : "border-border"
               }`}
             >
-              {value === "all" ? "すべて" : REWARD_CATEGORY_LABELS[value]}（{counts[value] ?? 0}）
+              {value === "all" ? "すべて" : categoryLabel(categories, value)}（{counts[value] ?? 0}）
             </button>
           ))}
         </div>
@@ -323,7 +334,7 @@ export default function AdminItemsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm font-bold">{item.name}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {REWARD_CATEGORY_LABELS[item.category]}
+                    {categoryLabel(categories, item.category)}
                     {item.active ? "" : " ・ 無効"}
                   </p>
                   {item.description ? <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.description}</p> : null}

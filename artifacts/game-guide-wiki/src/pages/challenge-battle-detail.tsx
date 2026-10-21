@@ -12,6 +12,7 @@ type RewardItem = {
   name: string;
   imageUrl?: string;
   description?: string;
+  fixedQuantity?: boolean; // 称号・背景など個数を持たないアイテム
 };
 
 type Reward = {
@@ -116,9 +117,11 @@ function RewardList({ title, rewards }: { title: string; rewards: Reward[] }) {
                 <p className="break-words text-sm font-bold">
                   {reward.item?.name ?? "登録済みアイテム"}
                 </p>
-                <p className="mt-1 text-xs font-bold text-primary">
-                  × {reward.quantity.toLocaleString("ja-JP")}
-                </p>
+                {reward.item?.fixedQuantity ? null : (
+                  <p className="mt-1 text-xs font-bold text-primary">
+                    × {reward.quantity.toLocaleString("ja-JP")}
+                  </p>
+                )}
                 {reward.item?.description && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {reward.item.description}
@@ -149,7 +152,9 @@ function RewardTotals({ title, scoreRewards, fields }: {
         const current = totals.get(reward.itemId);
         totals.set(reward.itemId, {
           item: reward.item ?? current?.item,
-          quantity: (current?.quantity ?? 0) + reward.quantity,
+          quantity: reward.item?.fixedQuantity
+            ? 1
+            : (current?.quantity ?? 0) + reward.quantity,
         });
       }
     }
@@ -184,9 +189,11 @@ function RewardTotals({ title, scoreRewards, fields }: {
               <p className="break-words text-sm font-bold">
                 {entry.item?.name ?? "登録済みアイテム"}
               </p>
-              <p className="text-xs font-bold text-primary">
-                合計 × {entry.quantity.toLocaleString("ja-JP")}
-              </p>
+              {entry.item?.fixedQuantity ? null : (
+                <p className="text-xs font-bold text-primary">
+                  合計 × {entry.quantity.toLocaleString("ja-JP")}
+                </p>
+              )}
             </div>
           </div>
         ))}

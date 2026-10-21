@@ -3,11 +3,12 @@ import { Router, type IRouter } from "express";
 import { ChallengeBattle, ChallengeRewardItem, Medal, MissionEvent, connectDB } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
 import {
+  FEATURE_DEFAULT_CATEGORIES,
+  REWARD_CATEGORY_DEFS,
   REWARD_ITEM_CATEGORIES,
-  REWARD_ITEM_CATEGORY_LABELS,
+  STORABLE_CATEGORIES,
   toMedalItem,
   toStoredItem,
-  type RewardItemCategory,
 } from "../lib/reward-items";
 
 const router: IRouter = Router();
@@ -16,18 +17,16 @@ function newId(prefix: string) {
   return `${prefix}-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
 
-type StoredCategory = "normal" | "medal-inheritance";
-
 function cleanItemBody(body: any):
-  | { value: { name: string; category: StoredCategory; imageUrl: string; description: string; active: boolean } }
+  | { value: { name: string; category: string; imageUrl: string; description: string; active: boolean } }
   | { error: string } {
   const name = String(body?.name ?? "").trim();
   if (!name) return { error: "アイテム名を入力してください" };
   if (name.length > 100) return { error: "アイテム名は100文字以内で入力してください" };
 
   const category = String(body?.category ?? "normal");
-  if (category !== "normal" && category !== "medal-inheritance") {
-    return { error: "カテゴリは「通常アイテム」または「メダル継承用アイテム」を選択してください（メダルはメダル管理画面で登録します）" };
+  if (!STORABLE_CATEGORIES.includes(category)) {
+    return { error: "カテゴリが正しくありません（メダルはメダル管理画面で登録します）" };
   }
 
   const imageUrl = String(body?.imageUrl ?? "").trim();
@@ -70,7 +69,7 @@ router.get("/admin/reward-items", requireAuth, requireAdmin, async (req, res) =>
     const q = String(req.query.q ?? "").trim().toLowerCase();
     const activeFilter = String(req.query.active ?? "").trim();
 
-    if (category && !REWARD_ITEM_CATEGORIES.includes(category as RewardItemCategory)) {
+    if (category && !REWARD_ITEM_CATEGORIES.includes(category)) {
       return res.status(400).json({ message: "カテゴリが正しくありません" });
     }
 
@@ -91,10 +90,9 @@ router.get("/admin/reward-items", requireAuth, requireAdmin, async (req, res) =>
     list.sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
     return res.json({
-      categories: REWARD_ITEM_CATEGORIES.map((value) => ({
-        value,
-        label: REWARD_ITEM_CATEGORY_LABELS[value],
-      })),
+      // カテゴリ定義と、報酬機能ごとの初期設定（画面はこれを元に選択肢を作る）
+      categories: REWARD_CATEGORY_DEFS,
+      featureDefaults: FEATURE_DEFAULT_CATEGORIES,
       items: list,
     });
   } catch (error) {

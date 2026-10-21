@@ -3,6 +3,7 @@ import { Router, type IRouter } from "express";
 import { ChallengeBattle, connectDB } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
 import {
+  findFixedQuantityViolation,
   parseRewardCategories,
   resolveRewardItems,
   validateRewardItemIds,
@@ -123,6 +124,18 @@ function validateBattle(input: ReturnType<typeof cleanBattleBody>) {
 
 
 
+/** 保存対象の全報酬行（通常・ライト・プレミアム・ランキング）を平らにする */
+function collectRewardRows(input: any): { itemId: string; quantity: number }[] {
+  return [
+    ...input.scoreRewards.flatMap((tier: any) => [
+      ...tier.normalRewards,
+      ...tier.passLiteRewards,
+      ...tier.passPremiumRewards,
+    ]),
+    ...input.rankingRewards.flatMap((ranking: any) => ranking.rewards),
+  ];
+}
+
 async function hydrateBattle(battle: any) {
   const data =
     typeof battle?.toObject === "function" ? battle.toObject() : battle;
@@ -240,6 +253,10 @@ router.post("/admin/challenge-battles", requireAuth, requireAdmin, async (req, r
     if (!itemCheck.ok) {
       return res.status(400).json({ message: itemCheck.message });
     }
+    const quantityError = findFixedQuantityViolation(collectRewardRows(input), itemCheck.resolved);
+    if (quantityError) {
+      return res.status(400).json({ message: quantityError });
+    }
 
 
     const battle = await ChallengeBattle.create({ ...input, id: newId("challenge-battle") });
@@ -292,6 +309,10 @@ router.put("/admin/challenge-battles/:id", requireAuth, requireAdmin, async (req
     );
     if (!itemCheck.ok) {
       return res.status(400).json({ message: itemCheck.message });
+    }
+    const quantityError = findFixedQuantityViolation(collectRewardRows(input), itemCheck.resolved);
+    if (quantityError) {
+      return res.status(400).json({ message: quantityError });
     }
 
 
