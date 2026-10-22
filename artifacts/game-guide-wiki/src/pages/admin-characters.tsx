@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
+import { resolveTagName, resolveTagNames } from "@/lib/character-tags";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -672,11 +673,14 @@ function TagPicker({
   options,
   selected,
   onChange,
+  getLabel,
 }: {
   label: string;
   options: readonly string[];
   selected: string[];
   onChange: (values: string[]) => void;
+  /** 選択済みタグの表示名（省略時は値そのまま）。保存される値は変わらない */
+  getLabel?: (value: string) => string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -709,7 +713,7 @@ function TagPicker({
                 key={value}
                 className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"
               >
-                {value}
+                {getLabel ? getLabel(value) : value}
               </span>
             ))
           ) : (
@@ -2089,6 +2093,19 @@ export default function AdminCharactersPage() {
     });
   }
 
+  // 既存データにタグIDが入っていても、編集画面ではタグ名で表示・選択できるようにする。
+  // 対応するタグが見つからない値（削除済み等）は、関連付けを壊さないようそのまま保持する。
+  useEffect(() => {
+    if (!characterTagMasters.length) return;
+    setForm((current) => {
+      const normalized = current.tags.map(
+        (value) => characterTagMasters.find((master) => master.id === value)?.name ?? value,
+      );
+      const changed = normalized.some((value, index) => value !== current.tags[index]);
+      return changed ? { ...current, tags: [...new Set(normalized)] } : current;
+    });
+  }, [characterTagMasters, form.tags]);
+
   function startEdit(
     character: Character,
   ) {
@@ -3126,10 +3143,20 @@ export default function AdminCharactersPage() {
           </div>
         )}
 
-        <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/*
+          レイアウト：
+          PC   … 左に「登録済みキャラ一覧（独立スクロール・画面に固定）」、右に入力フォーム
+          スマホ … 上に入力フォーム、下に一覧（一覧の中だけスクロール）
+          キャラ数が増えても、入力フォームは一覧の下に押し出されない。
+        */}
+        <div className="mb-6 grid gap-6 xl:grid-cols-[400px_minmax(0,1fr)] xl:items-start">
+          <div className="order-2 min-w-0 space-y-6 xl:sticky xl:top-4 xl:order-1">
           {/* Character List */}
-          <section className="min-w-0 rounded-md border border-card-border bg-card p-4 shadow-card">
-            <div className="mb-4 flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
+          <section className="flex max-h-[70vh] min-w-0 flex-col rounded-md border border-card-border bg-card p-4 shadow-card xl:max-h-[calc(100vh-7rem)]" data-testid="section-character-list">
+            <h2 className="mb-3 shrink-0 text-sm font-black">
+              登録済みキャラクター（{filtered.length}件）
+            </h2>
+            <div className="mb-3 flex shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
               <Search
                 size={15}
                 className="text-muted-foreground"
@@ -3147,6 +3174,7 @@ export default function AdminCharactersPage() {
               />
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1" data-testid="list-characters-scroll">
             {loading ? (
               <p className="py-12 text-center text-xs text-muted-foreground">
                 読み込み中…
@@ -3210,12 +3238,7 @@ export default function AdminCharactersPage() {
                           character.tags.length >
                             0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {character.tags
-                                .slice(
-                                  0,
-                                  4,
-                                )
-                                .map(
+                              {resolveTagNames(character.tags, characterTagMasters).map(
                                   (
                                     tag,
                                   ) => (
@@ -3267,6 +3290,7 @@ export default function AdminCharactersPage() {
                 )}
               </div>
             )}
+            </div>
           </section>
 
           {/* Side Info */}
@@ -3294,7 +3318,8 @@ export default function AdminCharactersPage() {
         {/* Editor */}
         <form
           onSubmit={submit}
-          className="space-y-6"
+          className="order-1 min-w-0 space-y-6 xl:order-2"
+          data-testid="form-character-editor"
         >
           {/* Basic */}
           <section className="rounded-md border border-card-border bg-card p-5 shadow-card">
@@ -3450,6 +3475,9 @@ export default function AdminCharactersPage() {
                     : CHARACTER_TAG_OPTIONS
                 }
                 selected={form.tags}
+                getLabel={(value) =>
+                  resolveTagName(value, characterTagMasters) ?? "（削除済みタグ）"
+                }
                 onChange={(values) =>
                   setForm(
                     (current) => ({
@@ -3906,6 +3934,7 @@ export default function AdminCharactersPage() {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </GuideShell>
   );

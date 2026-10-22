@@ -13,6 +13,7 @@ import {
 import { Link, useParams } from "wouter";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
 import { CharacterIconOverlay } from "@/components/character-icon-overlay";
+import { resolveTagNames } from "@/lib/character-tags";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -687,7 +688,7 @@ export default function CharacterDetailPage() {
               <section className="mt-6 rounded-md border border-card-border bg-card p-6 shadow-card">
                 <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">キャラタグ</h2>
                 <div className="flex flex-wrap gap-2">
-                  {(character.tags ?? []).map((tag) => (
+                  {resolveTagNames(character.tags, tagMasters).map((tag) => (
                     <button
                       key={tag}
                       type="button"

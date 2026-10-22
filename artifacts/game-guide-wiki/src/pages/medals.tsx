@@ -18,8 +18,8 @@ function MedalCard({ medal, tags }: { medal: Medal; tags: MedalTag[] }) {
           <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-foreground/80">{medal.uniqueTrait || "固有特性未登録"}</p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {medal.medalTags.slice(0, 3).map((tagId) => <Link key={tagId} href={`/medal-tags/${tagId}`} onClick={(event) => event.stopPropagation()} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground hover:text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</Link>)}
+      <div className="mt-3 flex flex-wrap gap-1.5" data-testid={`tags-${medal.id}`}>
+        {medal.medalTags.map((tagId) => <Link key={tagId} href={`/medal-tags/${tagId}`} onClick={(event) => event.stopPropagation()} className="max-w-full break-words rounded bg-secondary px-1.5 py-0.5 text-[9px] text-secondary-foreground hover:text-primary">{tags.find((tag) => tag.id === tagId)?.name ?? tagId}</Link>)}
       </div>
     </Link>
   );

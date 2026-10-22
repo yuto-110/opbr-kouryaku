@@ -3,6 +3,7 @@ import { Filter, Search, SlidersHorizontal } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { EmptyState, GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
 import { CharacterIconOverlay } from "@/components/character-icon-overlay";
+import { resolveTagNames, type TagMasterLite } from "@/lib/character-tags";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -40,13 +41,13 @@ function attributeClass(attribute: string) {
   return map[attribute] ?? "bg-secondary";
 }
 
-function CharacterCard({ character }: { character: Character }) {
+function CharacterCard({ character, tagNames }: { character: Character; tagNames: string[] }) {
   return (
     <Link
       href={`/characters/${character.id}`}
       className="group flex min-w-0 overflow-hidden rounded-md border border-card-border bg-card shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
     >
-      <div className="relative aspect-square w-[132px] shrink-0 bg-secondary">
+      <div className="relative aspect-square w-[104px] shrink-0 bg-secondary sm:w-[132px]">
         {character.imageUrl ? (
           <img src={character.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -61,13 +62,14 @@ function CharacterCard({ character }: { character: Character }) {
         <span className={`absolute right-2 top-2 h-3 w-3 rounded-full ${attributeClass(character.attribute.base)}`} />
       </div>
 
-      <div className="min-w-0 flex-1 p-3.5">
+      <div className="min-w-0 flex-1 p-3 sm:p-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="text-[10px] text-muted-foreground">{character.reading || "読み未登録"}</div>
             <h3 className="truncate text-sm font-black group-hover:text-primary">{character.name}</h3>
           </div>
-          <span className="font-data text-lg font-bold text-primary">{character.tier}</span>
+          {/* 評価：小さめの文字・折り返さない・幅を縮めない（「評価中」などが2行にならない） */}
+          <span className="font-data shrink-0 whitespace-nowrap rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-bold leading-tight text-primary sm:text-sm" data-testid={`text-tier-${character.id}`}>{character.tier}</span>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -75,6 +77,14 @@ function CharacterCard({ character }: { character: Character }) {
           <span className="text-[10px] text-muted-foreground">{character.role.base}</span>
           {character.faction && <span className="text-[10px] text-muted-foreground">/ {character.faction}</span>}
         </div>
+
+        {tagNames.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1" data-testid={`tags-${character.id}`}>
+            {tagNames.map((name) => (
+              <span key={name} className="max-w-full break-words rounded-full bg-secondary px-2 py-0.5 text-[9px] font-bold leading-tight">{name}</span>
+            ))}
+          </div>
+        )}
 
       </div>
     </Link>
@@ -91,6 +101,7 @@ export default function CharactersPage() {
   const [attribute, setAttribute] = useState("すべて");
   const [sort, setSort] = useState("name");
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [tagMasters, setTagMasters] = useState<TagMasterLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -107,6 +118,12 @@ export default function CharactersPage() {
       }
     }
     void load();
+
+    // キャラタグ名の表示用マスター。取得できなくても一覧は表示する
+    fetch(`${API_BASE_URL}/character-tags`)
+      .then(async (response) => (response.ok ? ((await response.json()) as TagMasterLite[]) : []))
+      .then(setTagMasters)
+      .catch(() => setTagMasters([]));
   }, []);
 
   const attributes = useMemo(
@@ -120,7 +137,7 @@ export default function CharactersPage() {
     return characters
       .filter((c) => {
         const skillSearchText = (c.skills ?? []).map((skill) => `${skill.name ?? ""} ${skill.skillInfo ?? ""} ${skill.description ?? ""} ${(skill.effectTags ?? []).join(" ")} ${(skill.statusAilments ?? []).join(" ")}`).join(" ");
-        const haystack = `${c.name} ${c.reading ?? ""} ${c.faction ?? ""} ${(c.tags ?? []).join(" ")} ${skillSearchText}`.toLowerCase();
+        const haystack = `${c.name} ${c.reading ?? ""} ${c.faction ?? ""} ${resolveTagNames(c.tags, tagMasters).join(" ")} ${skillSearchText}`.toLowerCase();
         return (
           (!q || haystack.includes(q)) &&
           (role === "すべて" || c.role.base === role) &&
@@ -148,7 +165,7 @@ export default function CharactersPage() {
           default: return a.name.localeCompare(b.name, "ja");
         }
       });
-  }, [characters, query, role, rarity, attribute, sort]);
+  }, [characters, tagMasters, query, role, rarity, attribute, sort]);
 
   return (
     <GuideShell>
@@ -202,7 +219,7 @@ export default function CharactersPage() {
             <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">{error}</div>
           ) : filtered.length ? (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {filtered.map((character) => <CharacterCard key={character.id} character={character} />)}
+              {filtered.map((character) => <CharacterCard key={character.id} character={character} tagNames={resolveTagNames(character.tags, tagMasters)} />)}
             </div>
           ) : (
             <div className="mt-4"><EmptyState label="条件に一致するキャラクターが見つかりません" /></div>

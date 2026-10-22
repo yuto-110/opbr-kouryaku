@@ -115,7 +115,21 @@ export default function AdminPage() {
             <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
           </div>
           <h2 className="mt-5 text-lg font-black">メダル管理</h2>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">メダル画像・固有特性・メダルタグ・追加特性3枠を登録・編集します。</p>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">メダル画像・固有特性・追加特性3枠を登録・編集し、メダルタグを割り当てます。</p>
+        </Link>
+
+        <Link
+          href="/admin/medal-tags"
+          className="group rounded-lg border border-card-border bg-card p-6 shadow-card transition hover:border-primary/40 hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="grid h-11 w-11 place-items-center rounded-md bg-primary/10 text-primary">
+              <Tags size={21} />
+            </div>
+            <ArrowRight size={18} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+          </div>
+          <h2 className="mt-5 text-lg font-black">メダルタグ管理</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">メダルタグ（2セット・3セット効果）を登録・編集・削除します。</p>
         </Link>
 
         <Link
