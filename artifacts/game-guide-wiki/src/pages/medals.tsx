@@ -27,7 +27,7 @@ function MedalCard({ medal, tags }: { medal: Medal; tags: MedalTag[] }) {
 
 export default function MedalsPage() {
   const [medals, setMedals] = useState<Medal[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get("search") ?? "");
   const [tags, setTags] = useState<MedalTag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [error, setError] = useState("");

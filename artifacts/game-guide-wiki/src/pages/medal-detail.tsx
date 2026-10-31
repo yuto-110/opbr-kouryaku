@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Bookmark } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useSeo } from "@/lib/seo";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import type { Medal, MedalTag } from "@/data/medal";
 
@@ -25,6 +26,17 @@ export default function MedalDetailPage() {
       .catch(() => setMedal(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useSeo(
+    medal
+      ? {
+          title: `${medal.name}（メダルの固有特性・効果）`,
+          description: `${medal.name}の固有特性：${medal.uniqueTrait}`,
+        }
+      : !loading
+        ? { title: "メダルが見つかりません", noindex: true }
+        : null,
+  );
 
   if (loading) return <GuideShell><PageIntro eyebrow="MEDAL / LOADING" title="読み込み中…" /></GuideShell>;
   if (!medal) return <GuideShell><PageIntro eyebrow="ERROR / 404" title="メダルが見つかりません" action={<Link href="/medals" className="rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white">一覧に戻る</Link>} /></GuideShell>;

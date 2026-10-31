@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, LoaderCircle } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useSeo } from "@/lib/seo";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import { RewardIcon } from "@/components/reward-icon";
 import {
@@ -93,6 +94,17 @@ export default function EventMissionDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useSeo(
+    event
+      ? {
+          title: `${event.name}（イベントミッション）`,
+          description: `${event.name}のミッション内容と報酬を確認できます（ミッション${event.missions.length}件）。${event.description ?? ""}`,
+        }
+      : !loading
+        ? { title: "イベントが見つかりません", noindex: true }
+        : null,
+  );
 
   if (loading) {
     return (

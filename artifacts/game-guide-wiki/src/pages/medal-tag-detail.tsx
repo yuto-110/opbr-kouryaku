@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useSeo } from "@/lib/seo";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 import type { Medal, MedalTag } from "@/data/medal";
 
@@ -25,6 +26,17 @@ export default function MedalTagDetailPage() {
       .catch(() => setTag(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useSeo(
+    tag
+      ? {
+          title: `${tag.name}（メダルタグ）`,
+          description: `メダルタグ「${tag.name}」。2セット効果：${tag.twoSetEffect || "-"}／3セット効果：${tag.threeSetEffect || "-"}。このタグを持つメダルは${medals.length}件です。`,
+        }
+      : !loading
+        ? { title: "メダルタグが見つかりません", noindex: true }
+        : null,
+  );
 
   if (loading) return <GuideShell><PageIntro eyebrow="MEDAL TAG / LOADING" title="読み込み中…" /></GuideShell>;
   if (!tag) return <GuideShell><PageIntro eyebrow="ERROR / 404" title="メダルタグが見つかりません" action={<Link href="/medals" className="rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white">メダル一覧へ</Link>} /></GuideShell>;

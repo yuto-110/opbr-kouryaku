@@ -93,7 +93,8 @@ function CharacterCard({ character, tagNames }: { character: Character; tagNames
 
 export default function CharactersPage() {
   const [location] = useLocation();
-  const initialQuery = new URLSearchParams(location.split("?")[1] || "").get("search") || "";
+  // wouter の location にはクエリが含まれないため、ホームの検索などからの ?search= は window.location から読む
+  const initialQuery = new URLSearchParams(window.location.search || location.split("?")[1] || "").get("search") || "";
 
   const [query, setQuery] = useState(initialQuery);
   const [role, setRole] = useState<(typeof roles)[number]>("すべて");

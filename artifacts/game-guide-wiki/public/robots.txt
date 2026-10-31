@@ -1,2 +1,10 @@
 User-agent: *
 Allow: /
+# 検索結果に載せないページ（認証・アクセス制御は別途サーバー側で行っています。robots.txtは非公開情報の保護には使いません）
+Disallow: /admin
+Disallow: /auth
+Disallow: /mypage
+Disallow: /settings
+
+# Sitemap: 正式なURLが決まったら、下の行を有効にして実際のURLに置き換えてください
+# Sitemap: https://（正式なドメイン）/sitemap.xml

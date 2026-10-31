@@ -30,6 +30,11 @@ import AdminChallengeBattlesPage from '@/pages/admin-challenge-battles';
 import ChallengeBattlesPage from '@/pages/challenge-battles';
 import ChallengeBattleDetailPage from '@/pages/challenge-battle-detail';
 import SettingsPage from '@/pages/settings';
+import AboutPage from '@/pages/about';
+import ContactPage from '@/pages/contact';
+import PrivacyPage from '@/pages/privacy';
+import DisclaimerPage from '@/pages/disclaimer';
+import { RouteSeo } from '@/components/route-seo';
 import EventMissionsPage from '@/pages/event-missions';
 import EventMissionDetailPage from '@/pages/event-mission-detail';
 import AdminItemsPage from '@/pages/admin-items';
@@ -136,6 +141,26 @@ function Router() {
         />
 
         <Route
+          path="/about"
+          component={AboutPage}
+        />
+
+        <Route
+          path="/contact"
+          component={ContactPage}
+        />
+
+        <Route
+          path="/privacy"
+          component={PrivacyPage}
+        />
+
+        <Route
+          path="/disclaimer"
+          component={DisclaimerPage}
+        />
+
+        <Route
           path="/auth"
           component={AuthPage}
         />
@@ -220,6 +245,7 @@ function App() {
             '',
           )}
         >
+          <RouteSeo />
           <Router />
         </WouterRouter>
 

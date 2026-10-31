@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Gift, LoaderCircle, Swords } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useSeo } from "@/lib/seo";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
 
 const API_BASE_URL =
@@ -235,6 +236,17 @@ export default function ChallengeBattleDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useSeo(
+    battle
+      ? {
+          title: `${battle.name}（チャレンジバトルの報酬）`,
+          description: `${battle.name}のチャレンジバトル情報。開催期間：${formatDate(battle.startDate)}〜${formatDate(battle.endDate)}。報酬一覧と報酬の合計を確認できます。${battle.overview ?? ""}`,
+        }
+      : !loading
+        ? { title: "チャレンジバトルが見つかりません", noindex: true }
+        : null,
+  );
 
   if (loading) {
     return (

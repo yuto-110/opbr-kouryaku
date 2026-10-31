@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useSeo } from "@/lib/seo";
 import { GuideShell, PageIntro, SidebarCard } from "@/components/guide-shell";
 import { CharacterIconOverlay } from "@/components/character-icon-overlay";
 import { resolveTagNames } from "@/lib/character-tags";
@@ -450,6 +451,18 @@ export default function CharacterDetailPage() {
     const ids = new Set(character?.relatedCharacters ?? []);
     return allCharacters.filter((item) => ids.has(item.id));
   }, [allCharacters, character?.relatedCharacters]);
+
+  // 取得した実データでメタデータを設定（読み込み中は共通設定、取得失敗時は検索結果に載せない）
+  useSeo(
+    character
+      ? {
+          title: `${character.name}（キャラクター評価・スキル・ステータス）`,
+          description: `${character.name}の評価・スキル・ステータスを確認できます。評価：${character.tier}／役職：${character.role?.base ?? "-"}／属性：${character.attribute?.base ?? "-"}。${character.description ?? ""}`,
+        }
+      : !loading && error
+        ? { title: "キャラクターが見つかりません", noindex: true }
+        : null,
+  );
 
   if (loading) {
     return <GuideShell><PageIntro eyebrow="CHARACTER / LOADING" title="読み込み中…" /></GuideShell>;

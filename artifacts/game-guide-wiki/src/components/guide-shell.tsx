@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Bookmark, BookOpenText, ChevronRight, ListChecks, CircleUserRound, Compass, Database, ExternalLink, Hammer, Home, Menu, Search, Settings, Shield, Swords, Trophy, X } from 'lucide-react';
 import type { Character, Medal } from '@/data/mockData';
+import { SiteFooter } from '@/components/site-footer';
 
 const navItems = [
   { href: '/', label: 'ホーム', icon: Home },
@@ -23,7 +24,7 @@ export function GuideShell({ children }: { children: ReactNode }) {
         <div className="flex h-16 w-full items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2" data-testid="link-mobile-logo">
             <BrandMark small />
-            <span className="text-sm font-black tracking-[.12em]">覇道データベース</span>
+            <span className="text-sm font-black tracking-wide">OPBR攻略+</span>
           </Link>
           <button onClick={() => setMobileOpen((value) => !value)} className="rounded-md p-2 text-foreground hover:bg-secondary" aria-label="メニューを開く" data-testid="button-mobile-menu">
             {mobileOpen ? <X size={21} /> : <Menu size={21} />}
@@ -43,7 +44,7 @@ export function GuideShell({ children }: { children: ReactNode }) {
           <Link href="/" className="flex items-center gap-3" data-testid="link-sidebar-logo">
             <BrandMark />
             <div>
-              <div className="text-[15px] font-black tracking-[.12em] text-white">覇道</div>
+              <div className="text-[15px] font-black tracking-wide text-white">OPBR攻略+</div>
               <div className="font-data text-[9px] tracking-[.16em] text-slate-400">DATABASE / 01</div>
             </div>
           </Link>
@@ -75,6 +76,7 @@ export function GuideShell({ children }: { children: ReactNode }) {
         <Topbar />
         <div className="mx-auto w-full max-w-[1440px] min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
            {children}
+          <SiteFooter />
         </div>
       </main>
     </div>
@@ -93,7 +95,7 @@ function Topbar() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState('');
   return <div className="hidden h-[72px] items-center justify-between border-b border-border bg-card px-10 lg:flex">
-    <div className="font-data text-[10px] tracking-[.16em] text-muted-foreground">HADO DATABASE <span className="mx-2 text-border">/</span> LIVE GUIDE</div>
+    <div className="font-data text-[10px] tracking-[.16em] text-muted-foreground">OPBR攻略+ <span className="mx-2 text-border">/</span> DATABASE</div>
     <div className="flex items-center gap-5">
       <label className="flex h-9 w-[280px] items-center gap-2 rounded-md border border-border bg-background px-3 text-muted-foreground focus-within:border-primary">
         <Search size={15} />
