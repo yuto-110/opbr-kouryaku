@@ -1,5 +1,12 @@
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { ArrowLeft, Plus, Save, Pencil, Trash2, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GuideShell, PageIntro } from "@/components/guide-shell";
@@ -12,6 +19,11 @@ import {
   type RewardItemsResponse,
 } from "@/lib/reward-items";
 import { useRewardCategorySetting } from "@/lib/use-reward-categories";
+import {
+  mergeRecognizedRewards,
+  type RecognizedReward,
+  type RecognizedRewardKind,
+} from "@/lib/challenge-reward-recognition";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -68,6 +80,8 @@ type RewardType =
   | "normalRewards"
   | "passLiteRewards"
   | "passPremiumRewards";
+
+type RecognitionImage = { file: File; previewUrl: string };
 
 const rewardTypes: { value: RewardType; label: string }[] = [
   { value: "normalRewards", label: "通常報酬" },
@@ -283,6 +297,11 @@ export default function AdminChallengeBattlesPage() {
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [liteImages, setLiteImages] = useState<RecognitionImage[]>([]);
+  const [premiumImages, setPremiumImages] = useState<RecognitionImage[]>([]);
+  const [recognizedRewards, setRecognizedRewards] = useState<RecognizedReward[]>([]);
+  const [recognitionBusy, setRecognitionBusy] = useState(false);
+  const [recognitionMessage, setRecognitionMessage] = useState("");
 
   // --- 下書き保存 ---
   // baselineRef: 「DBの内容（または空フォーム）」のスナップショット。これと違うときだけ下書きを保存する
@@ -459,6 +478,166 @@ export default function AdminChallengeBattlesPage() {
     return url;
   }
 
+  function addRecognitionImages(
+    files: FileList | null,
+    setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
+  ) {
+    if (!files) return;
+    const selected = [...files].filter((file) =>
+      ["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type),
+    );
+    setImages((current) => [
+      ...current,
+      ...selected.slice(0, Math.max(0, 3 - current.length)).map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
+  }
+
+  function removeRecognitionImage(
+    index: number,
+    setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
+  ) {
+    setImages((current) => {
+      const target = current[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
+  }
+
+  function moveRecognitionImage(
+    index: number,
+    direction: -1 | 1,
+    setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
+  ) {
+    setImages((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  }
+
+  function clearRecognitionImages() {
+    for (const image of [...liteImages, ...premiumImages]) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
+    setLiteImages([]);
+    setPremiumImages([]);
+    setRecognizedRewards([]);
+    setRecognitionMessage("");
+  }
+
+  async function recognizeRewardImages() {
+    setError("");
+    setRecognitionMessage("");
+    const requests: { passType: "lite" | "premium"; images: RecognitionImage[] }[] = [];
+    if (liteImages.length) requests.push({ passType: "lite", images: liteImages });
+    if (premiumImages.length) requests.push({ passType: "premium", images: premiumImages });
+    if (!requests.length) {
+      setError("ライトまたはプレミアムの画像を選択してください");
+      return;
+    }
+    if (requests.some(({ images }) => images.length < 2 || images.length > 3)) {
+      setError("選択した画像は、各区分2〜3枚にしてください");
+      return;
+    }
+
+    setRecognitionBusy(true);
+    try {
+      const responses = await Promise.all(
+        requests.map(async ({ passType, images }) => {
+          const response = await fetchWithTimeout(
+            `${API_BASE_URL}/admin/challenge-battles/recognize-rewards`,
+            {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                passType,
+                images: await Promise.all(
+                  images.map(async ({ file }) => ({
+                    contentType: file.type,
+                    contentBase64: await fileToBase64(file),
+                  })),
+                ),
+              }),
+            },
+            SAVE_TIMEOUT_MS,
+          );
+          const data = (await response.json().catch(() => null)) as {
+            rewards?: RecognizedReward[];
+            message?: string;
+          } | null;
+          if (!response.ok) throw new Error(data?.message ?? "画像認識に失敗しました");
+          return data?.rewards ?? [];
+        }),
+      );
+      const merged = mergeRecognizedRewards(responses.flat());
+      setRecognizedRewards(merged);
+      setRecognitionMessage(
+        merged.length
+          ? `${merged.length}件を認識しました。要確認の項目を修正してから反映してください。`
+          : "報酬を認識できませんでした。画像を確認してください。",
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "画像認識に失敗しました");
+    } finally {
+      setRecognitionBusy(false);
+    }
+  }
+
+  function updateRecognizedReward(index: number, patch: Partial<RecognizedReward>) {
+    setRecognizedRewards((current) =>
+      current.map((reward, rewardIndex) =>
+        rewardIndex === index
+          ? { ...reward, ...patch, status: patch.status ?? "recognized" }
+          : reward,
+      ),
+    );
+  }
+
+  function applyRecognizedRewards() {
+    const unresolved = recognizedRewards.find(
+      (reward) =>
+        reward.status === "needs_review" ||
+        reward.status === "failed" ||
+        reward.score === "" ||
+        !reward.itemId ||
+        reward.quantity === "" ||
+        !Number.isInteger(Number(reward.score)) ||
+        !Number.isInteger(Number(reward.quantity)) ||
+        Number(reward.quantity) < 1,
+    );
+    if (unresolved) {
+      setError("要確認・認識失敗の報酬をすべて修正してから反映してください");
+      return;
+    }
+    setBattleForm((current) => {
+      const next = [...current.scoreRewards];
+      for (const reward of recognizedRewards) {
+        const score = Number(reward.score);
+        const type = `${reward.kind}Rewards` as RewardType;
+        const index = next.findIndex((tier) => Number(tier.score) === score);
+        const row = { itemId: reward.itemId, quantity: Number(reward.quantity) };
+        if (index < 0) {
+          next.push({
+            score,
+            normalRewards: [],
+            passLiteRewards: [],
+            passPremiumRewards: [],
+            [type]: [row],
+          });
+        } else if (!next[index][type].some((item) => item.itemId === row.itemId && item.quantity === row.quantity)) {
+          next[index] = { ...next[index], [type]: [...next[index][type], row] };
+        }
+      }
+      return { ...current, scoreRewards: next.sort((a, b) => Number(a.score) - Number(b.score)) };
+    });
+    setRecognitionMessage("認識結果を入力欄へ反映しました。保存するまで既存データは変更されません。");
+  }
+
   async function remove(path: string) {
     if (!window.confirm("このデータを削除しますか？")) return;
 
@@ -516,6 +695,7 @@ export default function AdminChallengeBattlesPage() {
     enterEditContext(battle.id, nextForm);
 
     setBannerImageFile(null);
+    clearRecognitionImages();
     setError("");
     setMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -709,6 +889,17 @@ export default function AdminChallengeBattlesPage() {
     setMessage("");
 
     if (
+      recognizedRewards.some(
+        (reward) =>
+          reward.status === "needs_review" ||
+          reward.status === "failed",
+      )
+    ) {
+      setError("画像認識結果に要確認または認識失敗の項目が残っています。修正または削除してください");
+      return;
+    }
+
+    if (
       !battleForm.name.trim() ||
       !battleForm.startDate ||
       !battleForm.endDate
@@ -865,6 +1056,7 @@ export default function AdminChallengeBattlesPage() {
       // ここまで来たら保存成功：対応する下書きを削除してフォームを初期化
       removeDraft(savingBattleId);
       setBannerImageFile(null);
+      clearRecognitionImages();
       setEditingBattleId(null);
       setBattleForm(emptyBattle());
       setDraftNotice("");
@@ -1032,6 +1224,62 @@ export default function AdminChallengeBattlesPage() {
         </p>
       </div>
     );
+  }
+
+  function renderRecognitionLane(
+    label: string,
+    images: RecognitionImage[],
+    setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
+  ) {
+    return (
+      <div className="rounded-md border border-border p-3">
+        <h4 className="font-black">{label}</h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          通常報酬と{label}専用報酬が写った画像を2〜3枚選択してください。
+        </p>
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          onChange={(event) => {
+            addRecognitionImages(event.target.files, setImages);
+            event.target.value = "";
+          }}
+          className="mt-3 block w-full rounded border border-border bg-background px-2 py-2 text-sm"
+        />
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {images.map((image, index) => (
+            <div key={`${image.file.name}-${index}`} className="relative rounded border border-border p-1">
+              <img src={image.previewUrl} alt={`${label}画像${index + 1}`} className="aspect-video w-full object-cover" />
+              <p className="truncate px-1 text-[11px]">{index + 1}. {image.file.name}</p>
+              <div className="flex justify-between gap-1 px-1 pt-1">
+                <button type="button" disabled={index === 0} onClick={() => moveRecognitionImage(index, -1, setImages)} className="text-xs disabled:opacity-30">←</button>
+                <button type="button" onClick={() => removeRecognitionImage(index, setImages)} className="text-xs text-red-600">削除</button>
+                <button type="button" disabled={index === images.length - 1} onClick={() => moveRecognitionImage(index, 1, setImages)} className="text-xs disabled:opacity-30">→</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function recognitionKindLabel(kind: RecognizedRewardKind) {
+    return kind === "normal"
+      ? "通常報酬"
+      : kind === "passLite"
+        ? "イベントパスライト報酬"
+        : "イベントパスプレミアム報酬";
+  }
+
+  function recognitionStatusLabel(status: RecognizedReward["status"]) {
+    return status === "recognized"
+      ? "認識成功"
+      : status === "merged"
+        ? "重複統合済み"
+        : status === "failed"
+          ? "認識失敗"
+          : "要確認";
   }
 
   return (
@@ -1214,6 +1462,98 @@ export default function AdminChallengeBattlesPage() {
             />
           </label>
         </div>
+
+        <section className="mt-7 rounded-md border border-primary/30 bg-primary/5 p-4">
+          <h3 className="text-base font-black">報酬画像から自動読み取り</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            画像は認識と確認が完了するまでサーバーや既存データに保存されません。ライトとプレミアムを混ぜずに選択してください。
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {renderRecognitionLane("イベントパスライト", liteImages, setLiteImages)}
+            {renderRecognitionLane("イベントパスプレミアム", premiumImages, setPremiumImages)}
+          </div>
+          <button
+            type="button"
+            onClick={() => void recognizeRewardImages()}
+            disabled={recognitionBusy}
+            className="mt-3 rounded bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {recognitionBusy ? "画像を認識中..." : "画像を認識する"}
+          </button>
+          {recognitionMessage ? <p className="mt-2 text-sm text-green-700">{recognitionMessage}</p> : null}
+
+          {recognizedRewards.length ? (
+            <div className="mt-5 space-y-3">
+              <h4 className="font-black">認識結果の確認（確認後に反映）</h4>
+              {(["normal", "passLite", "passPremium"] as RecognizedRewardKind[]).map((kind) => {
+                const entries = recognizedRewards
+                  .map((reward, index) => ({ reward, index }))
+                  .filter(({ reward }) => reward.kind === kind);
+                if (!entries.length) return null;
+                return (
+                  <div key={kind} className="rounded border border-border bg-background p-3">
+                    <h5 className="font-bold">{recognitionKindLabel(kind)}</h5>
+                    <div className="mt-2 space-y-2">
+                      {entries.map(({ reward, index }) => (
+                        <div key={index} className="grid gap-2 rounded border border-border p-2 sm:grid-cols-[100px_1fr_100px_110px_auto]">
+                          {(() => {
+                            const item = selectableItems.find((candidate) => candidate.id === reward.itemId);
+                            return item?.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.name} className="h-12 w-12 self-end rounded object-contain" />
+                            ) : null;
+                          })()}
+                          <label className="text-xs font-bold">
+                            スコア
+                            <input
+                              type="number"
+                              min="0"
+                              value={reward.score}
+                              onChange={(event) => updateRecognizedReward(index, { score: event.target.value === "" ? "" : Number(event.target.value) })}
+                              className="mt-1 w-full rounded border border-border px-2 py-1 text-sm"
+                            />
+                          </label>
+                          <div>
+                            <span className="text-xs font-bold">アイテム</span>
+                            <div className="mt-1">
+                              {rewardItemSelect(reward.itemId, (itemId) => updateRecognizedReward(index, { itemId }))}
+                            </div>
+                          </div>
+                          <label className="text-xs font-bold">
+                            個数
+                            <input
+                              type="number"
+                              min="1"
+                              value={reward.quantity}
+                              onChange={(event) => updateRecognizedReward(index, { quantity: event.target.value === "" ? "" : Number(event.target.value) })}
+                              className="mt-1 w-full rounded border border-border px-2 py-1 text-sm"
+                            />
+                          </label>
+                          <span className={`self-end rounded px-2 py-1 text-xs font-bold ${reward.status === "needs_review" || reward.status === "failed" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}>
+                            {recognitionStatusLabel(reward.status)}
+                          </span>
+                          <button type="button" onClick={() => setRecognizedRewards((current) => current.filter((_, rewardIndex) => rewardIndex !== index))} className="self-end text-xs text-red-600">
+                            削除
+                          </button>
+                          {reward.note ? <p className="sm:col-span-5 text-xs text-yellow-700">{reward.note}</p> : null}
+                          <p className="sm:col-span-5 text-[11px] text-muted-foreground">
+                            読み取り元: {reward.sourceImageIndexes.map((imageIndex) => imageIndex + 1).join(", ") || "不明"}枚目
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={applyRecognizedRewards}
+                className="rounded border border-primary px-4 py-2 text-sm font-bold text-primary"
+              >
+                確認済みの結果を報酬入力欄へ反映
+              </button>
+            </div>
+          ) : null}
+        </section>
 
         <h3 className="mt-7 text-base font-black">スコア報酬の合計</h3>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -1522,6 +1862,7 @@ export default function AdminChallengeBattlesPage() {
                 setBattleForm(emptyBattle());
                 enterEditContext(null, emptyBattle());
                 setBannerImageFile(null);
+                clearRecognitionImages();
                 setError("");
                 setMessage("");
               }}

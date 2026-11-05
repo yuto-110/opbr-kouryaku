@@ -36,12 +36,18 @@
 - [x] 所持キャラクターAPI
 - [x] GitHub assets画像アップロードAPI
 - [x] API JSON body 12MB
+- [x] チャレンジバトル報酬画像認識（`POST /api/admin/challenge-battles/recognize-rewards`）
+  - 管理者認証必須、画像は確認完了まで保存しない
+  - `normalRewards` / `passLiteRewards` / `passPremiumRewards` の既存形式へ反映
+  - `OPENAI_API_KEY` 未設定時は明示的にエラー
 
 ### 画像
 - メインリポジトリとは別の公開リポジトリ `yuto-110/opbr-kouryaku-assets` を使用
 - フォルダは `characters/`, `medals/`, `team-boost/`
 - API側のGitHub PATは環境変数 `GITHUB_ASSETS_TOKEN` に保存する
 - PAT自体をコードやチャットに保存しない
+- 報酬画像認識は OpenAI Chat Completions の画像入力を使用し、API側の `OPENAI_API_KEY` で管理する
+- 任意の `OPENAI_VISION_MODEL` でモデルを変更でき、未指定時は `gpt-4o-mini`
 
 ## 次の未実装領域
 
@@ -54,7 +60,7 @@
 - 検索API
 - 所持キャラクターUIの完全実装
 - 編成自動生成
-- AI機能
+- その他のAI機能
 - 実際のゲームデータの大量投入
 - 断片/育成素材の実消費処理
 - MongoDBの古いテストデータ整理

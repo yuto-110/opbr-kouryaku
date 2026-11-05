@@ -187,10 +187,11 @@ router.patch("/admin/reward-items/:id/active", requireAuth, requireAdmin, async 
 router.delete("/admin/reward-items/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     await connectDB();
-    const item = await ChallengeRewardItem.findOne({ id: req.params.id }).lean();
+    const itemId = String(req.params.id);
+    const item = await ChallengeRewardItem.findOne({ id: itemId }).lean();
     if (!item) return res.status(404).json({ message: "アイテムが見つかりません" });
 
-    const usage = await countUsages(req.params.id);
+    const usage = await countUsages(itemId);
     if (usage.challengeBattles + usage.missionEvents > 0) {
       return res.status(409).json({
         message: `使用中のため削除できません（チャレバト ${usage.challengeBattles} 件、イベントミッション ${usage.missionEvents} 件）。代わりに無効化してください。`,
@@ -198,7 +199,7 @@ router.delete("/admin/reward-items/:id", requireAuth, requireAdmin, async (req, 
       });
     }
 
-    await ChallengeRewardItem.deleteOne({ id: req.params.id });
+    await ChallengeRewardItem.deleteOne({ id: itemId });
     return res.json({ ok: true });
   } catch (error) {
     console.error("[reward-items] delete failed:", error);
