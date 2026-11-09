@@ -39,15 +39,17 @@
 - [x] チャレンジバトル報酬画像認識（`POST /api/admin/challenge-battles/recognize-rewards`）
   - 管理者認証必須、画像は確認完了まで保存しない
   - `normalRewards` / `passLiteRewards` / `passPremiumRewards` の既存形式へ反映
-  - `OPENAI_API_KEY` 未設定時は明示的にエラー
+  - Gemini API（`@google/genai`）を使用
 
 ### 画像
 - メインリポジトリとは別の公開リポジトリ `yuto-110/opbr-kouryaku-assets` を使用
 - フォルダは `characters/`, `medals/`, `team-boost/`
 - API側のGitHub PATは環境変数 `GITHUB_ASSETS_TOKEN` に保存する
 - PAT自体をコードやチャットに保存しない
-- 報酬画像認識は OpenAI Chat Completions の画像入力を使用し、API側の `OPENAI_API_KEY` で管理する
-- 任意の `OPENAI_VISION_MODEL` でモデルを変更でき、未指定時は `gpt-4o-mini`
+- 報酬画像認識は Gemini API の画像入力を使用し、API側の `GEMINI_API_KEY` で管理する
+- 任意の `GEMINI_MODEL` でモデルを変更でき、未指定時は `gemini-3.5-flash-lite`
+- Google AI Studio の API keys ページでキーを作成し、Render の API サービス環境変数に設定する
+- 認識画像は各区分2枚から開始し、UI/APIとも最大6枚、1枚2MB、JPEG/PNG/WebP/AVIFに制限する
 
 ## 次の未実装領域
 

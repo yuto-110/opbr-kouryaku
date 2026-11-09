@@ -81,7 +81,13 @@ type RewardType =
   | "passLiteRewards"
   | "passPremiumRewards";
 
-type RecognitionImage = { file: File; previewUrl: string };
+type RecognitionImage = { file: File | null; previewUrl: string | null };
+const MAX_RECOGNITION_IMAGES = 6;
+const MAX_RECOGNITION_IMAGE_BYTES = 2 * 1024 * 1024;
+
+function emptyRecognitionSlots(count = 2): RecognitionImage[] {
+  return Array.from({ length: count }, () => ({ file: null, previewUrl: null }));
+}
 
 const rewardTypes: { value: RewardType; label: string }[] = [
   { value: "normalRewards", label: "通常報酬" },
@@ -297,8 +303,8 @@ export default function AdminChallengeBattlesPage() {
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [liteImages, setLiteImages] = useState<RecognitionImage[]>([]);
-  const [premiumImages, setPremiumImages] = useState<RecognitionImage[]>([]);
+  const [liteImages, setLiteImages] = useState<RecognitionImage[]>(() => emptyRecognitionSlots());
+  const [premiumImages, setPremiumImages] = useState<RecognitionImage[]>(() => emptyRecognitionSlots());
   const [recognizedRewards, setRecognizedRewards] = useState<RecognizedReward[]>([]);
   const [recognitionBusy, setRecognitionBusy] = useState(false);
   const [recognitionMessage, setRecognitionMessage] = useState("");
@@ -478,21 +484,44 @@ export default function AdminChallengeBattlesPage() {
     return url;
   }
 
-  function addRecognitionImages(
-    files: FileList | null,
+  function setRecognitionFile(
+    index: number,
+    file: File | null,
     setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
   ) {
-    if (!files) return;
-    const selected = [...files].filter((file) =>
-      ["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type),
+    if (
+      file &&
+      !["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)
+    ) {
+      setError("JPEG、PNG、WebP、AVIFのみ選択できます");
+      return;
+    }
+    if (file && file.size > MAX_RECOGNITION_IMAGE_BYTES) {
+      setError("報酬画像は1枚あたり2MB以下にしてください");
+      return;
+    }
+    setImages((current) =>
+      current.map((slot, slotIndex) => {
+        if (slotIndex !== index) return slot;
+        if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+        return {
+          file,
+          previewUrl: file ? URL.createObjectURL(file) : null,
+        };
+      }),
     );
-    setImages((current) => [
-      ...current,
-      ...selected.slice(0, Math.max(0, 3 - current.length)).map((file) => ({
-        file,
-        previewUrl: URL.createObjectURL(file),
-      })),
-    ]);
+  }
+
+  function addRecognitionSlot(
+    setImages: Dispatch<SetStateAction<RecognitionImage[]>>,
+  ) {
+    setImages((current) => {
+      if (current.length >= MAX_RECOGNITION_IMAGES) {
+        setError(`画像は最大${MAX_RECOGNITION_IMAGES}枚まで追加できます`);
+        return current;
+      }
+      return [...current, { file: null, previewUrl: null }];
+    });
   }
 
   function removeRecognitionImage(
@@ -501,7 +530,7 @@ export default function AdminChallengeBattlesPage() {
   ) {
     setImages((current) => {
       const target = current[index];
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
       return current.filter((_, itemIndex) => itemIndex !== index);
     });
   }
@@ -522,10 +551,10 @@ export default function AdminChallengeBattlesPage() {
 
   function clearRecognitionImages() {
     for (const image of [...liteImages, ...premiumImages]) {
-      URL.revokeObjectURL(image.previewUrl);
+      if (image.previewUrl) URL.revokeObjectURL(image.previewUrl);
     }
-    setLiteImages([]);
-    setPremiumImages([]);
+    setLiteImages(emptyRecognitionSlots());
+    setPremiumImages(emptyRecognitionSlots());
     setRecognizedRewards([]);
     setRecognitionMessage("");
   }
@@ -534,14 +563,23 @@ export default function AdminChallengeBattlesPage() {
     setError("");
     setRecognitionMessage("");
     const requests: { passType: "lite" | "premium"; images: RecognitionImage[] }[] = [];
-    if (liteImages.length) requests.push({ passType: "lite", images: liteImages });
-    if (premiumImages.length) requests.push({ passType: "premium", images: premiumImages });
+    const filledLite = liteImages.filter((image) => image.file);
+    const filledPremium = premiumImages.filter((image) => image.file);
+    if (filledLite.length) requests.push({ passType: "lite", images: filledLite });
+    if (filledPremium.length) requests.push({ passType: "premium", images: filledPremium });
     if (!requests.length) {
       setError("ライトまたはプレミアムの画像を選択してください");
       return;
     }
-    if (requests.some(({ images }) => images.length < 2 || images.length > 3)) {
-      setError("選択した画像は、各区分2〜3枚にしてください");
+    if (requests.some(({ images }) => images.length < 2 || images.length > MAX_RECOGNITION_IMAGES)) {
+      setError(`各区分の画像は2〜${MAX_RECOGNITION_IMAGES}枚選択してください`);
+      return;
+    }
+    const imageKeys = requests.flatMap(({ images }) =>
+      images.map(({ file }) => `${file?.name}:${file?.size}:${file?.lastModified}`),
+    );
+    if (new Set(imageKeys).size !== imageKeys.length) {
+      setError("同じ画像が複数選択されています。重複を削除してください");
       return;
     }
 
@@ -557,10 +595,13 @@ export default function AdminChallengeBattlesPage() {
               body: JSON.stringify({
                 passType,
                 images: await Promise.all(
-                  images.map(async ({ file }) => ({
-                    contentType: file.type,
-                    contentBase64: await fileToBase64(file),
-                  })),
+                  images.map(async ({ file }) => {
+                    if (!file) throw new Error("画像ファイルを選択してください");
+                    return {
+                      contentType: file.type,
+                      contentBase64: await fileToBase64(file),
+                    };
+                  }),
                 ),
               }),
             },
@@ -1233,25 +1274,42 @@ export default function AdminChallengeBattlesPage() {
   ) {
     return (
       <div className="rounded-md border border-border p-3">
-        <h4 className="font-black">{label}</h4>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-black">{label}</h4>
+          <button
+            type="button"
+            onClick={() => addRecognitionSlot(setImages)}
+            disabled={images.length >= MAX_RECOGNITION_IMAGES}
+            className="rounded border border-primary px-2 py-1 text-xs font-bold text-primary disabled:opacity-40"
+          >
+            画像を追加
+          </button>
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          通常報酬と{label}専用報酬が写った画像を2〜3枚選択してください。
+          通常報酬と{label}専用報酬が写った画像を2〜{MAX_RECOGNITION_IMAGES}枚まで選択できます。
         </p>
-        <input
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          onChange={(event) => {
-            addRecognitionImages(event.target.files, setImages);
-            event.target.value = "";
-          }}
-          className="mt-3 block w-full rounded border border-border bg-background px-2 py-2 text-sm"
-        />
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {images.map((image, index) => (
-            <div key={`${image.file.name}-${index}`} className="relative rounded border border-border p-1">
-              <img src={image.previewUrl} alt={`${label}画像${index + 1}`} className="aspect-video w-full object-cover" />
-              <p className="truncate px-1 text-[11px]">{index + 1}. {image.file.name}</p>
+            <div key={index} className="relative rounded border border-border p-1">
+              {image.previewUrl ? (
+                <img src={image.previewUrl} alt={`${label}画像${index + 1}`} className="aspect-video w-full object-cover" />
+              ) : (
+                <div className="flex aspect-video items-center justify-center bg-secondary text-xs text-muted-foreground">
+                  画像未選択
+                </div>
+              )}
+              <label className="mt-1 block text-xs font-bold">
+                画像{index + 1}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  onChange={(event) => {
+                    setRecognitionFile(index, event.target.files?.[0] ?? null, setImages);
+                    event.target.value = "";
+                  }}
+                  className="mt-1 block w-full text-[11px]"
+                />
+              </label>
               <div className="flex justify-between gap-1 px-1 pt-1">
                 <button type="button" disabled={index === 0} onClick={() => moveRecognitionImage(index, -1, setImages)} className="text-xs disabled:opacity-30">←</button>
                 <button type="button" onClick={() => removeRecognitionImage(index, setImages)} className="text-xs text-red-600">削除</button>
