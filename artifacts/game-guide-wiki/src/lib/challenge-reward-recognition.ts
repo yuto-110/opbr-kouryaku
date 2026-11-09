@@ -17,10 +17,17 @@ export type RecognizedReward = {
   sourceImageIndexes: number[];
   status: RecognizedRewardStatus;
   note: string;
+  visualSymbol: "heart" | "sword" | "shield" | "skull" | "black_orb" | "unknown";
+  visualTier: "I" | "II" | "III" | "unknown";
 };
 
 function sameReward(a: RecognizedReward, b: RecognizedReward) {
-  return a.itemId === b.itemId && a.quantity === b.quantity;
+  return (
+    a.itemId === b.itemId &&
+    a.quantity === b.quantity &&
+    a.visualSymbol === b.visualSymbol &&
+    a.visualTier === b.visualTier
+  );
 }
 
 /**

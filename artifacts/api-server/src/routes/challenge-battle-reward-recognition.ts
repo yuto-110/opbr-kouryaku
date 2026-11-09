@@ -8,6 +8,8 @@ const router: IRouter = Router();
 const MAX_IMAGES = 6;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const visualSymbols = ["heart", "sword", "shield", "skull", "black_orb", "unknown"];
+const visualTiers = ["I", "II", "III", "unknown"];
 
 type RecognitionRequest = {
   passType?: "lite" | "premium";
@@ -29,6 +31,8 @@ const rewardSchema = {
           sourceImageIndexes: { type: "ARRAY", items: { type: "INTEGER" } },
           status: { type: "STRING", enum: ["recognized", "needs_review", "failed"] },
           note: { type: "STRING" },
+          visualSymbol: { type: "STRING", enum: visualSymbols },
+          visualTier: { type: "STRING", enum: visualTiers },
         },
         required: [
           "score",
@@ -38,6 +42,8 @@ const rewardSchema = {
           "sourceImageIndexes",
           "status",
           "note",
+          "visualSymbol",
+          "visualTier",
         ],
       },
     },
@@ -102,7 +108,10 @@ router.post(
       const prompt = `OPBRのチャレンジバトル報酬一覧を読み取ってください。入力画像は横長画面の連続した${images.length}枚です。画像間の重複列は同じスコアとして照合し、画像に存在しないスコアは追加しないでください。
 この依頼はイベントパス${body.passType === "lite" ? "ライト" : "プレミアム"}画像です。通常報酬は normal、指定パス専用行は ${body.passType === "lite" ? "passLite" : "passPremium"} としてください。別パスの報酬や画面下部の購入特典は読み取らないでください。
 スコア、個数は画像の文字をそのまま厳密に読み、判別できない場合は status を needs_review にしてください。アイコンと文字をカタログと照合し、確実に一致する itemId だけを使用してください。不一致は itemId を空文字にしてください。
-画像の端が見切れている、同じスコアの報酬内容が一致しない、または文字・個数が不明瞭な場合は必ず needs_review にしてください。
+各報酬アイコンでは、外側の銀色のギザギザ・黄色い輪・背景を種類判定の根拠にせず、まず中央シンボルだけを拡大して判定してください。中央シンボルは heart / sword / shield / skull / black_orb / unknown のいずれかで返してください。
+中央シンボルとは別に、アイコン右上の六角形状の枠内にあるローマ数字だけを読み、I / II / III / unknown のいずれかで返してください。普通の数字や中央シンボルの線をローマ数字として扱わないでください。
+中央シンボルまたは右上ローマ数字が不鮮明、切れている、または判定根拠が不足する場合は unknown と needs_review を返してください。画像の端が見切れている、同じスコアの報酬内容が一致しない、または文字・個数が不明瞭な場合も必ず needs_review にしてください。
+visualSymbol と visualTier の組み合わせが既存カタログのアイテムと一致すると確認できた場合だけ itemId を設定し、それ以外は itemId を空文字にしてください。confidence の数値を推測で返さないでください。
 利用可能なアイテムカタログ: ${JSON.stringify(itemCatalog)}`;
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -156,12 +165,16 @@ router.post(
             const score = Number(value.score);
             const quantity = Number(value.quantity);
             const kind = String(value.kind ?? "");
+            const visualSymbol = String(value.visualSymbol ?? "unknown");
+            const visualTier = String(value.visualTier ?? "unknown");
             if (
               !Number.isSafeInteger(score) ||
               !Number.isSafeInteger(quantity) ||
               !Array.isArray(value.sourceImageIndexes) ||
               typeof value.status !== "string" ||
               typeof value.note !== "string"
+              || !visualSymbols.includes(visualSymbol)
+              || !visualTiers.includes(visualTier)
             ) {
               return [];
             }
@@ -187,10 +200,16 @@ router.post(
                   )
                 : [],
               status:
-                value.status === "recognized" && itemId && quantity > 0
+                value.status === "recognized" &&
+                itemId &&
+                quantity > 0 &&
+                visualSymbol !== "unknown" &&
+                visualTier !== "unknown"
                   ? "recognized"
                   : "needs_review",
               note: typeof value.note === "string" ? value.note : "",
+              visualSymbol,
+              visualTier,
             }];
           });
       if (rewards.length !== rawRewards.length) {

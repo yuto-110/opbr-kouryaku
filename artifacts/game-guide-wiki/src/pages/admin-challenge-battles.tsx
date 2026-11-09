@@ -633,7 +633,15 @@ export default function AdminChallengeBattlesPage() {
     setRecognizedRewards((current) =>
       current.map((reward, rewardIndex) =>
         rewardIndex === index
-          ? { ...reward, ...patch, status: patch.status ?? "recognized" }
+          ? {
+              ...reward,
+              ...patch,
+              status:
+                patch.visualSymbol === "unknown" ||
+                patch.visualTier === "unknown"
+                  ? "needs_review"
+                  : patch.status ?? "recognized",
+            }
           : reward,
       ),
     );
@@ -646,6 +654,8 @@ export default function AdminChallengeBattlesPage() {
         reward.status === "failed" ||
         reward.score === "" ||
         !reward.itemId ||
+        reward.visualSymbol === "unknown" ||
+        reward.visualTier === "unknown" ||
         reward.quantity === "" ||
         !Number.isInteger(Number(reward.score)) ||
         !Number.isInteger(Number(reward.quantity)) ||
@@ -1553,7 +1563,7 @@ export default function AdminChallengeBattlesPage() {
                     <h5 className="font-bold">{recognitionKindLabel(kind)}</h5>
                     <div className="mt-2 space-y-2">
                       {entries.map(({ reward, index }) => (
-                        <div key={index} className="grid gap-2 rounded border border-border p-2 sm:grid-cols-[100px_1fr_100px_110px_auto]">
+                        <div key={index} className="grid gap-2 rounded border border-border p-2 sm:grid-cols-[100px_1fr_120px_100px_110px_auto]">
                           {(() => {
                             const item = selectableItems.find((candidate) => candidate.id === reward.itemId);
                             return item?.imageUrl ? (
@@ -1586,14 +1596,50 @@ export default function AdminChallengeBattlesPage() {
                               className="mt-1 w-full rounded border border-border px-2 py-1 text-sm"
                             />
                           </label>
+                          <label className="text-xs font-bold">
+                            中央シンボル
+                            <select
+                              value={reward.visualSymbol}
+                              onChange={(event) =>
+                                updateRecognizedReward(index, {
+                                  visualSymbol: event.target.value as RecognizedReward["visualSymbol"],
+                                })
+                              }
+                              className="mt-1 w-full rounded border border-border px-2 py-1 text-sm"
+                            >
+                              <option value="heart">ハート</option>
+                              <option value="sword">剣</option>
+                              <option value="shield">盾</option>
+                              <option value="skull">ドクロ</option>
+                              <option value="black_orb">黒い球体</option>
+                              <option value="unknown">不明</option>
+                            </select>
+                          </label>
+                          <label className="text-xs font-bold">
+                            右上段階
+                            <select
+                              value={reward.visualTier}
+                              onChange={(event) =>
+                                updateRecognizedReward(index, {
+                                  visualTier: event.target.value as RecognizedReward["visualTier"],
+                                })
+                              }
+                              className="mt-1 w-full rounded border border-border px-2 py-1 text-sm"
+                            >
+                              <option value="I">I</option>
+                              <option value="II">II</option>
+                              <option value="III">III</option>
+                              <option value="unknown">不明</option>
+                            </select>
+                          </label>
                           <span className={`self-end rounded px-2 py-1 text-xs font-bold ${reward.status === "needs_review" || reward.status === "failed" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}>
                             {recognitionStatusLabel(reward.status)}
                           </span>
                           <button type="button" onClick={() => setRecognizedRewards((current) => current.filter((_, rewardIndex) => rewardIndex !== index))} className="self-end text-xs text-red-600">
                             削除
                           </button>
-                          {reward.note ? <p className="sm:col-span-5 text-xs text-yellow-700">{reward.note}</p> : null}
-                          <p className="sm:col-span-5 text-[11px] text-muted-foreground">
+                          {reward.note ? <p className="sm:col-span-6 text-xs text-yellow-700">{reward.note}</p> : null}
+                          <p className="sm:col-span-6 text-[11px] text-muted-foreground">
                             読み取り元: {reward.sourceImageIndexes.map((imageIndex) => imageIndex + 1).join(", ") || "不明"}枚目
                           </p>
                         </div>

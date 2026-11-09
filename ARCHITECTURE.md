@@ -251,7 +251,7 @@ src/
 - 記事管理
 
 ### Phase 8: AI機能
-- OpenAI API統合
+- Google Gemini API統合（管理者向け報酬画像認識）
 - 編成提案
 - 攻略説明生成
 
